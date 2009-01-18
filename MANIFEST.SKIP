@@ -2,13 +2,16 @@
 ^\.
 \.tmp$
 _Inline
+Makefile$
 blib
 \.svn
 \.bak$
 \.out$
 \.auto$
+\.old$
 debug
 eraseme
+.*eraseme.*
 example-linux
 example-win32.exe
 \.world$
@@ -22,3 +25,4 @@ test.file$
 \.tdy$
 \.swp$
 rll.*.tar.gz$
+Roguelike.*\.gz

@@ -8,7 +8,7 @@ require Exporter;
 
 # direction helpers
 
-our $REV = '$Revision: 132 $';
+our $REV = '$Revision: 136 $';
 $REV =~ m/: (\d+)/;
 our $VERSION = '0.4.' . $1;
 
