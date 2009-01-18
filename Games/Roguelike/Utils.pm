@@ -8,7 +8,7 @@ require Exporter;
 
 # direction helpers
 
-our $REV = '$Revision: 136 $';
+our $REV = '$Revision: 149 $';
 $REV =~ m/: (\d+)/;
 our $VERSION = '0.4.' . $1;
 
@@ -86,46 +86,82 @@ sub min {
 
 sub rarr {
 	my ($arr) = @_;
-die Dumper($arr);
 	return $arr->[$#{$arr}*rand()];
 }
 
 =head1 NAME
 
-Games::Roguelike - Rogelike Library for Perl
+Games::Roguelike::Utils - convenience functions and exports for roguelikes
 
 =head1 SYNOPSIS
 
- package myworld;
- use base 'Games::Roguelike::World';
-
- $r = myworld->new(w=>80,h=>50,dispw=>40,disph=>18);     # creates a world with specified width/height & map display width/height
- $r->area(new Games::Roguelike::Area(name=>'1'));                    # create a new area in this world called "1"
- $r->area->genmaze2();                                   # make a cavelike maze
- $char = Games::Roguelike::Mob->new($r->area, sym=>'@', pov=>8);      # add a mobile object with symbol '@'
- $r->setvp($char);                                       # set viewpoint to be from $char's perspective
- $r->drawmap();                                          # draw the active area map from the current perspective
- while (!((my $c = $r->getch()) eq 'q')) {
-        $char->kbdmove($c);
-        $r->drawmap();
- }
+ use Games::Roguelike::Utils qw(:all);
 
 =head1 DESCRIPTION
 
-library for pulling together field of view, character handling and map drawing code.   
+Non-object oriented functions that are generally helpful for roguelike programming, and are used by other roguelike modules.
 
-	* Games::Roguelike::World is the primary object used
-	* uses the Games::Roguelike::Console library to draw on the screen
-	* assumes the user will be using overridden Games::Roguelike::Mob's as characters in the game
-	* Games::Roguelike.pm itself is a just a utility module used by other classes
+=head2 FUNCTIONS
 
+=over
+
+=item min (a, b)
+
+=item max (a, b)
+
+Returns min/max of 2 passed values
+
+=item distance(x1, y1, x2, y2);
+
+Returns the distance between 2 points, uses Inline C version if available
+
+=item randsort(array);
+
+Randomly sorts its arguments and returns the random array.
+
+=item randi (a[, b])
+
+With 2 arguments, returns a random integer from a to b, inclusive.
+
+With 1 argument, returns a random integer form 0 to a-1.
+
+=back
+
+=head2 VARIABLES
+
+=over
+
+=item %DD - direction delta hash
+
+Hash mapping direction names to array ref offsets.  
+
+	'n' =>[0,-1], # north decreases y, and leaves x alone
+	...
+	'se'=>[1, 1], # southeast increases y, and increases x
+
+=item @DD - direction delta list
+
+Array with delta entries as above, sorted as: 'n','s','e','w','ne','se','nw','sw', '.'
+
+=item @DIRS - direction list
+
+The array ('n','s','e','w','ne','se','nw','sw','.')
+
+=item @DI - direction index
+
+Maps 0=>'n', 1=>'s' ... etc. as in @DIRS
+
+=item @DIRN - number of directions (8)
+
+=back
+ 
 =head1 SEE ALSO
 
-L<Games::Roguelike::Area>, L<Games::Roguelike::Mob>, L<Games::Roguelike::Console>
+L<Games::Roguelike::World>
 
 =head1 AUTHOR
 
-Erik Aronesty C<erik@q32.com>
+Erik Aronesty C<earonesty@cpan.org>
 
 =head1 LICENSE
 

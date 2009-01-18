@@ -8,11 +8,41 @@ use Games::Roguelike::Area;
 use Data::Dumper;
 use Carp qw(croak confess);
 
+=head1 NAME
+
+Games::Roguelike::Mob - roguelike mobile object
+
+=head1 SYNOPSIS
+
+ package mymob;
+ use base 'Games::Roguelike::Mob';
+
+ $area = Games::Roguelike::Area->new();
+ $m = mymob->new($area, sym=>'D', x=>5,y=>6);       # creates a mob at location 5, 6
+                                                    # with symbol 'D', inside area $area
+
+ $m->autoex()					    # moves the mob towards the nearest unexplored area
+ $m->kbdmove($c)				    # moves the mob according to keystroke '$c' using traditional roguelike semantics
+
+=head1 DESCRIPTION
+
+Mobile object used by drawing routines in Roguelke::Area
+
 =head2 METHODS
 
 =over 4
 
-=cut 
+=item new($area, %options)
+
+Area is an ::Area object, options are:
+
+ sym=>'@', 		# symbol to use when rendering
+ items=>[], 		# array ref of contained items
+ hasmem=>1,		# whether the mob uses the "memory" feature
+ pov=>-1, 	        # distance the mob can "see" (-1 = infinite, 0 = blind)
+ singleminded=>0,	# whether the mob will "wander" when the movetoward function is called
+ 
+=cut
 
 sub new {
         my $pkg = shift;
@@ -35,13 +65,19 @@ sub new {
         }
 
         if (!defined($self->{x})) {
-                ($self->{x}, $self->{y}) = $area->findrandmap('.');
+                ($self->{x}, $self->{y}) = $area->findrandmap($area->{fsym}, 0, 1);
         }
 
         bless $self, $pkg;
         $area->addmob($self);
         return $self;
 }
+
+=item area([new])
+
+Either returns the current area (no arguments) or set the area (one argument).  
+
+If an area is supplied, the old area has "delmob" called on it,and the new area has "addmob" called on it.
 
 sub area {
         my $self = shift;
@@ -53,6 +89,14 @@ sub area {
         return $self->{area};
 }
 
+=item x()
+
+=item y()
+
+Returns the location of the mob
+
+=cut
+
 sub x {
 	return $_[0]->{x};
 }
@@ -61,15 +105,28 @@ sub y {
 	return $_[0]->{y};
 }
 
+=item on()
+
+Returns the map symbol from the current area at the mob's current x, y location.
+
+=cut
+
 sub on {
 	my $self = shift; 
 	return $self->{area}->{map}->[$self->{x}][$self->{y}];
 }
 
+=item movetofeature(@ARGS)
+
+Calls the "findfeature" function on the current area with the @ARGS, and, if one is returned, reposition with x/y coordinates to match.
+
+Checkmove/aftermove are not called.
+
+=cut
+
 sub movetofeature {
 	my $self = shift;
-	my $f = shift; 
-        my ($cx,$cy) = $self->{area}->findfeature($f);
+        my ($cx,$cy) = $self->{area}->findfeature(@_);
 	if (defined($cx)) {
         	$self->{x} = $cx;
         	$self->{y} = $cy;
@@ -89,6 +146,12 @@ my %DIAGS = (
 	'e',=>['ne','ne'],
 	'w',=>['sw','nw'],
 );
+
+=item movetoward($x, $y, $error)
+
+Moves the mob toward the point specified.   If error is specified, the destination point is "blurred" by the error radius.
+
+=cut
 
 sub movetoward {
 	my $self = shift;
@@ -173,6 +236,14 @@ sub orthogs {
 	return @{$ORTHOGS{$d}};
 }
 
+=item kbdmove($c[, $testonly])
+
+Moves the mob in direction '$c': 'h' is LEFT, 'l' is RIGHT, etc.
+
+The testonly flag is passed to the "move" function.
+
+=cut
+
 sub kbdmove {
 	my $self = shift;
 	my ($c, $testonly) = @_;
@@ -205,6 +276,14 @@ sub kbdmove {
         }
 	return 0;
 }
+
+=item safetomove()
+
+Returns true if it's safe to continue autoexploring.
+
+Default behavior is to return false if any mobs are in view.
+
+=cut
 
 sub safetomove {
         my $self = shift;
@@ -451,6 +530,17 @@ sub dropitem {
 }
 
 =back
+
+=head1 AUTHOR
+
+Erik Aronesty C<earonesty@cpan.org>
+
+=head1 LICENSE
+
+This program is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
+
+See L<http://www.perl.com/perl/misc/Artistic.html> or the included LICENSE file.
 
 =cut
 

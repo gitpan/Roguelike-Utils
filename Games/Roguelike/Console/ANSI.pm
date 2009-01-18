@@ -6,23 +6,34 @@ Games::Roguelike::Console::ANSI - socket-friendly, object oriented curses-like s
 
 =head1 SYNOPSIS
 
-use Games::Roguelike::Console::ANSI;
+ use Games::Roguelike::Console::ANSI;
 
-$con = Games::Roguelike::Console::ANSI->new();
-$con->attron('bold yellow');
-$con->addstr('test');
-$con->attroff();
-$con->refresh();
+ $con = Games::Roguelike::Console::ANSI->new();
+ $con->attron('bold yellow');
+ $con->addstr('test');
+ $con->attroff();
+ $con->refresh();
 
 =head1 DESCRIPTION
 
-Combines ReadKEy and Term::ANSIColor into an object oriented curses-like ansi screen buffer.
+Combines ReadKey and Term::ANSIColor into an object oriented curses-like ansi screen buffer.
 
 Inherits from Games::Roguelike::Console.  See Games::Roguelike::Console for list of methods.
 
 =head1 SEE ALSO
 
 L<Games::Roguelike::Console>
+
+=head1 AUTHOR
+
+Erik Aronesty C<erik@q32.com>
+
+=head1 LICENSE
+
+This program is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
+
+See L<http://www.perl.com/perl/misc/Artistic.html> or the included LICENSE file.
 
 =cut
 

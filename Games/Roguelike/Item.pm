@@ -9,6 +9,22 @@ use Carp qw(croak confess carp);
 
 our $AUTOLOAD;
 
+=head1 NAME
+
+Games::Roguelike::Item - roguelike item
+
+=head1 SYNOPSIS
+
+ package myitem;
+ use base 'Games::Roguelike::Item';
+
+ $i = myitem->new($area, sym=>'!', x=>5,y=>6);	    # creates an item at location 5, 6 
+						    # with symbol '!', inside area $area
+
+=head1 DESCRIPTION
+
+Item object used by drawing routines in Roguelke::Area
+
 =head2 METHODS
 
 =over 4
@@ -17,10 +33,9 @@ our $AUTOLOAD;
 
 =item new($container, %opts)
 
-$container is usually an "area" or "mob" object.
+$container is usually an "area" or "mob" or another "item" object.
 
-At a minimum, it must support the additem and delitem methods and 
-contain an {items} array which gets modified by "setcont"
+At a minimum, it must support the additem and delitem methods.
 
 The "new" method automatically calls additem on the container.
 
@@ -63,9 +78,11 @@ sub new {
 
 =item y()
 
-Return the item's x/y members only if the item is in an area object,
+Return the item's x/y members only if the item is in an ::Area object,
 
-Otherwise, they return the container's x and y members (this can be recursive).
+Otherwise, return the container's x and y members.
+
+Direct access to the $item->{x}/{y} members is encouraged if you don't care how it's contained. 
 
 =cut
 
@@ -91,7 +108,11 @@ Sets the container for an item, returns 0 if it's already contained within that 
 
 Dies if the container has no {items} list (ie: can't contain things)
 
-**Should only ever be called by the containers "additem" method.**
+** Should only ever be called** 
+	- by the container's "additem" method, and 
+	- only if the container is derived from ::Area, ::Mob or ::Item.
+
+(This can & will be made generic at some point)
 
 =cut
 
@@ -104,10 +125,14 @@ sub setcont {
 
 	if ($cont) {
 		if (!defined($self->{cont}) || $cont != $self->{cont}) {
-			$self->{in} = $cont->isa('Games::Roguelike::Area') ? 'area' : $cont->isa('Games::Roguelike::Mob') ? 'mob' : $cont->isa('Games::Roguelike::Item') ? 'item' : 'void';
+			$self->{in} = $cont->isa('Games::Roguelike::Area') ? 'area' 
+				    : $cont->isa('Games::Roguelike::Mob') ? 'mob' 
+				    : $cont->isa('Games::Roguelike::Item') ? 'item' : 'void';
+
 			$self->{"in" . $self->{in}} = 1;
 
-			die("item must be in a area, mob or another item as a container") 
+			# for now, do this, until interface is better documented
+			die("item must be in an area, mob or another item as a container") 
 				if $self->{invoid};
 
 			$self->{cont}->delitem($self) if $self->{cont};
@@ -154,7 +179,7 @@ sub DESTROY {
 
 =item additem (item)
 
-Adds item to inventory.  Override this to make backpacks, etc.
+Add item to reside within me.  Override this to make backpacks, etc.
 
 Return value 0 		= can't add, too full/or not a backpack
 Return value 1 		= add ok
@@ -167,6 +192,17 @@ Default implementation is to return "0", cannot add.
 sub additem {
 	my $self = shift;
 	return 0;			# i'm not a backpack
+}
+
+=item delitem (item)
+
+Deletes item from within me.  Override this to make backpacks, etc.
+
+=cut
+
+sub delitem {
+        my $self = shift;
+	croak("this should never be called, since additem always returns 0");
 }
 
 =back

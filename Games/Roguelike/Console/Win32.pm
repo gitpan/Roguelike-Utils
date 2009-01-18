@@ -1,6 +1,8 @@
 use strict;
 package Games::Roguelike::Console::Win32;
 
+#### refer to Games::Roguelike::Console for docs ###
+
 use Win32::Console;
 use Term::ReadKey;
 use Carp;

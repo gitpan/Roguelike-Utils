@@ -17,15 +17,16 @@ Games::Roguelike::Area - roguelike area map
  package myarea;
  use base 'Games::Roguelike::Area';
 
- $a = myarea->new(w=>80,h=>50);     			# creates an area with specified width/height
- $a->genmaze2();                                         # make a cavelike maze
- $char = Games::Roguelike::Mob->new($a, sym=>'@');                 	# add a mobile object with symbol '@'
+ $a = myarea->new(w=>80,h=>50);     				# creates an area with specified width/height
+ $a->genmaze2();                                         	# make a cavelike maze
+ $char = Games::Roguelike::Mob->new($a, sym=>'@');              # add a mobile object with symbol '@'
 
 =head1 DESCRIPTION
 
-library for generating mazes, managing items/mobs
+Library for loading or generating mazes, managing items/mobs
 
 	* assumes the user will be using overridden Games::Roguelike::Mob's as characters in the game
+	* provides a flexible load() function
 
 =head2 METHODS
 
@@ -52,20 +53,25 @@ BEGIN {
 	
 Options can also all be set/get as class accessors:
 
-	world => undef,			# world this area belongs to
+	world => undef,			# world this area belongs to (optional)
 	name => '', 			# name of this level/area (required if world is specified)
 	map => [] 			# double-indexed array of map symbols 
 	color => []			# double-indexed array of strings (used to color map symbols)
 	mobs => [],			# list of mobs
 	items => [],			# list of items
 
- # these will default to the world defaults, if world is set
+ # These will default to the world defaults, if world is set
 
         w=>80, h=>40,			# width/height of this area
+        debugmap => 0, 			# turn on map coordinate display
+
+ # These vars, which default to world defaults
+ # are used by map-making, pathfinding and field-of view, rather than using hooks
+ # specifically because function calling seems to slow things down significantly
+
         wsym => '#', 			# default wall symbol
         fsym => '.', 			# default floor symbol
         dsym => '+', 			# default door symbol
-        debugmap => 0, 			# turn on map coordinate display
         noview => '#+', 		# list of symbols that block view
         nomove => '#', 			# list of symbols that block movement	
 	
@@ -177,6 +183,7 @@ sub setmapsym {
         my $self = shift;
 	my ($x, $y, $sym) = @_;
         $self->{map}->[$x][$y] = $sym;
+        $self->{dotdex}->{$sym} = undef;
 }
 
 sub setmapcolor {
@@ -355,11 +362,11 @@ sub findclose {
                         my $tx = $DD[$d]->[0]+$c->[0];
                         my $ty = $DD[$d]->[1]+$c->[1];
 
+                        # not thru void
+                        next if !defined($self->{map}->[$tx][$ty]) || $self->{map}->[$tx][$ty] eq '';
+
                         # not thru wall
 			next if index($self->{nomove}, $self->{map}->[$tx][$ty]) >= 0;
-
-                        # not thru void
-                        last if $self->{map}->[$tx][$ty] eq '';
 
                         # not off edge
                         next if $tx < 0 || $ty < 0;
@@ -408,11 +415,11 @@ sub maxcardinal {
 	                my $tx = $DD[$d]->[0]+$cx;
 	                my $ty = $DD[$d]->[1]+$cy;
 
+                        # not thru void
+                        last if !defined($self->{map}->[$tx][$ty]) || $self->{map}->[$tx][$ty] eq '';
+
                         # not thru wall
 			last if index($self->{nomove}, $self->{map}->[$tx][$ty]) >= 0;
-
-                        # not thru void
-                        last if $self->{map}->[$tx][$ty] eq '';
 
                         # not off edge
                         last if $tx < 0 || $ty < 0;
@@ -645,10 +652,21 @@ sub addfeature {
         my ($sym, $x, $y) = @_;
 
 	if (!defined($x)) {
-		($x, $y) = $self->findrandmap($self->{fsym});
+		($x, $y) = $self->findrandmap($self->{fsym}, 0, 1);
 	}
 	$self->{map}->[$x][$y] = $sym;
 	push @{$self->{f}}, [$x, $y];
+}
+
+=item inbound(x, y)
+
+Returns true if x >= 0 and x < $self->{w} and y >= 0 and y < $self->{h}.
+
+=cut
+
+sub inbound {
+        my $self = shift;
+        return ($_[0]>=0)&&($_[0]<($self->{w}))&&($_[1]>=0)&&($_[1]<($self->{h}));
 }
 
 
@@ -773,8 +791,8 @@ sub genmaze1 {
 
 =item draw ({dispx=>, dispy=>, vp=>, con=>});
 
-draws the map using offset params from $display, from the perspective of $vp on the console $con
-usually done after each move
+draws the map using offset params dispx, dispy,, from the perspective of 
+$vp on the console $con - usually done after each move
 
 =cut
 
@@ -874,7 +892,7 @@ sub drawob {
                 $con->attrch($ob->{color},$ob->{y}-$oy+$yoff, $ob->{x}-$ox+$xoff, $ob->{sym});
             }
 	    #if the object is not the char, and the object is novel then memorize it and set the "saw something new this turn" flag
-	    if ($ob != $vp && !($vp->{memory}->{$self->{name}}->[$ob->{x}][$ob->{y}] eq $ob->{sym})) {
+	    if ($vp && $ob != $vp && !($vp->{memory}->{$self->{name}}->[$ob->{x}][$ob->{y}] eq $ob->{sym})) {
 		    $vp->{memory}->{$self->{name}}->[$ob->{x}][$ob->{y}] = $ob->{sym};
 		    $vp->{sawnew} = 1;
 	    }
@@ -966,7 +984,7 @@ sub checkpov {
 	my $self = shift;
 	my ($vp, $x, $y) = @_;
 	return 1 if (!$vp);	# no viewpoint, draw everything
-	return 1 if ($vp->{pov}<0);	# see all
+	return 1 if ($vp->{pov}<0 || !defined($vp->{pov}));	# see all
 	return 0 if ($vp->{pov}==0);	# blind
 	my $vx = $vp->{x};
 	my $vy = $vp->{y};
@@ -1098,17 +1116,22 @@ sub findrandmap {
     my $self = shift;
     my $sym = shift;
     my $mobok = shift;
-    if (!$self->{dotdex}) {
-	my @dotdex;
+    my $useindex = shift;
+
+    my $dotdex = $useindex && $self->{dotdex}->{$sym} ? $self->{dotdex}->{$sym} : [];
+
+    if (!@{$dotdex}) {
 	for (my $x = 0; $x < $self->{w}; ++$x) {
 	for (my $y = 0; $y < $self->{h}; ++$y) {
-		push @dotdex, [$x, $y] if defined($self->{map}->[$x][$y]) && ($self->{map}->[$x][$y] eq $sym && ($mobok || !$self->mobat($x,$y)));
+		push @{$dotdex}, [$x, $y] 
+			if defined($self->{map}->[$x][$y]) 
+			&& ($self->{map}->[$x][$y] eq $sym && ($mobok || !$self->mobat($x,$y)));
 	}
 	}
-	$self->{dotdex} = \@dotdex;
+	$self->{dotdex}->{$sym} = $dotdex;
     }
-    my $i = int(rand() * scalar(@{$self->{dotdex}}));
-    return $self->{dotdex}->[$i]->[0], $self->{dotdex}->[$i]->[1];
+    my $i = int(rand() * scalar(@{$dotdex}));
+    return $dotdex->[$i]->[0], $dotdex->[$i]->[1];
 }
 
 =item dump (all)
@@ -1162,7 +1185,7 @@ sub additem {
 	my $item = shift;
 	if ($item->setcont($self)) {
 		if (!defined($item->{x})) {
-			($item->{x}, $item->{y}) = $self->findrandmap('.');
+			($item->{x}, $item->{y}) = $self->findrandmap($self->{fsym}, 0, 1);
 		}
 	}
 	return 1;			# i'm never full
@@ -1186,7 +1209,7 @@ sub delitem {
 
 =item load (file | options)
 
-Loads an area from a file, which is a perl program exporting:
+Loads an area from a file, which is a perl program that sets these vars:
 
  $map 		: 2d map as one big string
  $yxarray	: 2d map as y then x indexed array
@@ -1194,26 +1217,29 @@ Loads an area from a file, which is a perl program exporting:
 	color	- color of that symbol
 	sym	- real symbol to use
 	feature - name of feature for feature table, don't specify with class!
-	class	- optional package to use for "new", must be an Games::Roguelike::Mob or Games::Roguelike::Item
+	class	- optional package to use for "new", passed the area itself as the first argument to new
 	lib	- look up item or mob from library
 
  %lib		: hash of hashes, used to populate items or monsters - as needed
 
-Alternatively, these can be passed as named option to the load function.
+Alternatively, these can be passed as named options to the load function.
 
-Other variables are passed to the "class" new function.
 '>', and '<' are assumed to be "stair features" unless otherwise specified.
+
 Objects can be looked up by name from the item library instead of specified in full.
 
-Objects derived from class Games::Roguelike::Item have additem called on the container.  Likewise addmob is called with mobs.
+Classes should add themselves, somehow, to the area object on new.
 
 The example below loads a standard map, with blue doors, 2 mobs and 1 item
 
-One mob is loaded via a package "mymonster", and is passed "hd", "name", and "items" parameters.
+One mob is loaded via a package "mymonster", and is passed "hd", "name", and "items" parameters,
+in addition to the "x", "y" and "sym" derived from its location.
+
 The other is loaded from the library named "blue dragon", and has it's name and "hp" parameters modified.
 
-The map system knows very little about the game semantics.   It's merely a way of loading maps
- made of symbols - some of which may correlate to perl objects.
+The map system knows very little about game semantics.   It's merely a way of loading maps
+ made of symbols - some of which may correlate to perl objects.  The tictactoe example script
+uses the map load system.
 
 lib: 
 
@@ -1259,11 +1285,13 @@ EXAMPLE 1:
 	'blue dragon'=>{class=>'mymob', type=>'dragon', breath=>'lightning', hp=>180, hd=>12, at=>[10,5], dm=>[5,10], speed=>5, loot=>4},
        );
 
+  $area->load(map=>$map, key=>%key, lib=>\%lib);
+
 EXAMPLE 2:
 	
  use Games::Roguelike::Caves;
  my $yx = generate_cave($r->{w},$r->{h}, 12, .46, '#', '.');
- $level->load(yxarray=>$yx);
+ $area->load(yxarray=>$yx);
 
 =cut
 
@@ -1352,6 +1380,7 @@ sub load {
 							}
 							my $it;
 							eval {$it = $_->{class}->new($ob, %{$_});};
+							carp "failed to create $_->{class}: $@" if !$ob;
 						}
 					}
 				} else {

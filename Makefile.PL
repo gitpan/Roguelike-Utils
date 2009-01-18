@@ -19,7 +19,7 @@ WriteMakefile(
     PMLIBDIRS    => ['Games'],
     VERSION      => "$ver$rev",
     AUTHOR       => 'Erik Aronesty (erik@q32.com)',
-    ABSTRACT     => 'Roguelike Libary for Perl',
+    ABSTRACT     => 'Roguelike Utilities for Perl',
     PREREQ_PM    => {
                      'Test::Simple' => 0.44,
                     },

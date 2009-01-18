@@ -14,6 +14,8 @@ $con = Games::Roguelike::Console::Dump->new(keys=>'qY', file=>'/dev/null');
 
 Fake console that dumps screens to file, used for testing game scripts without needing "curses" support.
 
+Notably, the new function takes a keystroke string and a file as arguments.
+
 Inherits from Games::Roguelike::Console.  See Games::Roguelike::Console for list of methods.
 
 =head1 SEE ALSO

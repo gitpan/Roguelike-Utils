@@ -29,11 +29,12 @@ Games::Roguelike::World - roguelike world
 
 =head1 DESCRIPTION
 
-library for pulling together field of view, character handling and map drawing code.   
+General pupose object which pulls together field of view, item, mob handling and map drawing code.   
 
 	* contains a hash of Games::Roguelike::Area's for each "level" or "region" in the game
-	* uses the Games::Roguelike::Console library to draw the map
+	* uses the Games::Roguelike::Console library to draw the current area
 	* assumes the user will be using overridden Games::Roguelike::Mob's as characters in the game
+	* assumes the user will be using overridden Games::Roguelike::Item's as items in the game
 
 =head2 METHODS
 
@@ -373,7 +374,7 @@ sub showmsg {
 		shift @$msglog;
 	}
 
-	my $mlx = $#{$self->{vp}->{msglog}};
+	my $mlx = $#{$msglog};
 	for (my $i = 0; $i < $self->{msgh}; ++$i) {
 		next unless $i <= $mlx;				# no more messages in log
 		my ($m, $a) = @{$msglog->[$mlx-$i]};
@@ -459,7 +460,7 @@ L<Games::Roguelike::Area>, L<Games::Roguelike::Mob>, L<Games::Roguelike::Console
 
 =head1 AUTHOR
 
-Erik Aronesty C<erik@q32.com>
+Erik Aronesty C<earonesty@cpan.org>
 
 =head1 LICENSE
 

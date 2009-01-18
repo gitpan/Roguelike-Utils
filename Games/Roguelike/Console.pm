@@ -31,67 +31,74 @@ Attempts to figure out which Games::Roguelike::Console subclass to instantiate i
 
 =item new ([type=>$stype], [noinit=>1])
 
-create a new console, optionally specifying the subtype (currently: win32, ansi or curses), and the noinit flag (which suppresses terminal init)
+Create a new console, optionally specifying the subtype (win32, ansi, curses or dump:file[:keys]), and the noinit flag (which suppresses terminal initialization.)
+
+If a type is not specified, a suitable default will be chosen.
 
 =item addch ([$y, $x], $str);
 
 =item addstr ([$y, $x], $str);
 
-prints a string at the y, x positions or at the current cursor position (also positions and advances the cursor to y, x+length(str))
+=item attrstr ($color, [$y, $x], $str);
 
-=item attron ($attr)
+Prints a string at the y, x positions or at the current cursor position (also positions the cursor at y, x+length(str))
 
-turns on color attributes ie: bold blue, white, white on black, black on bold blue
+=item attron ($color)
+
+Turns on color attributes ie: bold blue, white, white on black, black on bold blue
 
 =item attroff ()
 
-turns off color attributes
+Turns off color attributes
 
 =item refresh ()
 
-draws the current screen
+Draws the current screen
 
 =item redraw ()
 
-redraws entire screen (if out of sync)
+Redraws entire screen (if out of sync)
 
 =item move ($y, $x)
 
-moves the cursor to y, x
+Moves the cursor to y, x
 
 =item getch ()
 
-reads a character from input
+Reads a character from input
 
 =item nbgetch ()
 
-reads a character from input, non-blocking
+Reads a character from input, non-blocking
 
 =item parsecolor ()
 
-helper function for subclass, parses an attribute then calls "nativecolor($fg, $bg, $bold)", caching the results
+Helper function for subclass, parses an attribute then calls "nativecolor($fg, $bg, $bold)", caching the results
 
-=item tagstr ([$x,$y,] $str)
+=item tagstr ([$y, $x,] $str)
 
-moves the cursor to x/y and writes the string $str, which can contain <color> tags
+Moves the cursor to y, x and writes the string $str, which can contain <color> tags
 
-=item xymove ($x,$y)
+=item cursor([bool])
 
-moves the cursor to x/y
-
-=item xych ($x,$y)
-
-moves the cursor to x/y, and writes a character
-
-=item xystr ($x,$y)
-
-moves the cursor to x/y, and writes a string
+Changes the state of whether the cursor is shown, or returns the current state.
 
 =back
 
 =head1 SEE ALSO
 
 L<Games::Roguelike::Console::ANSI>, L<Games::Roguelike::Console::Win32>, L<Games::Roguelike::Console::Curses>
+
+=head1 AUTHOR
+
+Erik Aronesty C<earonesty@cpan.org>
+
+=head1 LICENSE
+
+This program is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
+
+See L<http://www.perl.com/perl/misc/Artistic.html> or the included LICENSE file.
 
 =cut
 
