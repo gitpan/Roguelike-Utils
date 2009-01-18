@@ -1,0 +1,11 @@
+Add cross-platform ability to detect the shift and control keys held down while moving.
+
+Find a number pad and test/get it to work on linux/windows.
+
+Figure out how to resize the console on windows. 
+
+Include a "wilderness" generator.
+
+#0.1# Add a way to load map and mob definitions from external files.
+
+Get Save/Load world to work on Win32
