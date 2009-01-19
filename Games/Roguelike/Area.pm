@@ -27,6 +27,7 @@ Library for loading or generating mazes, managing items/mobs
 
 	* assumes the user will be using overridden Games::Roguelike::Mob's as characters in the game
 	* provides a flexible load() function
+	* contains an array of 'features', which can be named, searched for and positioned
 
 =head2 METHODS
 
@@ -45,7 +46,7 @@ our $OKINLINEPOV;
 our $AUTOLOAD;
 
 BEGIN {
-        eval('use Games::Roguelike::Pov_C;');
+        eval('use Games::Roguelike::Utils::Pov_C;');
         $OKINLINEPOV = !$@;
 } 
 
@@ -53,7 +54,7 @@ BEGIN {
 	
 Options can also all be set/get as class accessors:
 
-	world => undef,			# world this area belongs to (optional)
+	world => undef,			# world this area belongs to (optional container which can "addarea")
 	name => '', 			# name of this level/area (required if world is specified)
 	map => [] 			# double-indexed array of map symbols 
 	color => []			# double-indexed array of strings (used to color map symbols)
@@ -183,7 +184,6 @@ sub setmapsym {
         my $self = shift;
 	my ($x, $y, $sym) = @_;
         $self->{map}->[$x][$y] = $sym;
-        $self->{dotdex}->{$sym} = undef;
 }
 
 sub setmapcolor {
@@ -204,7 +204,7 @@ sub map {
 
 =item rpoint ()
 
-returns a random point that's not off the edge
+Returns a random point as an X/Y array, that's within the map, and not on the edge..
 
 =cut
 
@@ -216,13 +216,14 @@ sub rpoint {
 
 =item rpoint_empty ()
 
-Returns a random point that's empty (devoid of map info)
+Returns a random point that's empty (eiher the symbol is ''' or is undefined)
 
 =cut
 
 sub rpoint_empty {
         my $self = shift;
 	croak unless $self;
+	# well, there's better ways to do this, but this has worked so far
 	while (1) {
 	        my ($x, $y) = (1+int(rand()*($self->{w}-2)), 1+int(rand()*($self->{h}-2)));
 		return ($x, $y) if $self->{map}->[$x][$y] eq '';
@@ -230,7 +231,7 @@ sub rpoint_empty {
 }
 
 
-############ genmaze1 ############
+############ part of genmaze1 ############
 
 sub genroom {
 	# make a room centered on x/y with optional minimum x/y size
@@ -299,7 +300,7 @@ sub genroom {
 
 =item findpath(x1, y1, x2, y2)
 
-Returns 1 if there is a path from x1,y2 to x2,y2
+Returns 1 if there is a path from x1,y2 to x2,y2.  Uses "nomove" member as the list of symlos that cannot be moved throug.
 
 =cut
 
@@ -319,12 +320,16 @@ sub findpath {
 			my $tx = $DD[$d]->[0]+$c->[0];
 			my $ty = $DD[$d]->[1]+$c->[1];
 
-			# not thru wall
-			next if index($self->{nomove}, $self->{map}->[$tx][$ty]) >= 0;
-
 			# not off edge
 			next if $tx < 0 || $ty < 0;
 			next if $tx >= $self->{w} || $ty >= $self->{h};
+
+			# not thru void
+			next if !defined($self->{map}->[$tx][$ty]);
+			next if $self->{map}->[$tx][$ty] eq '';
+
+			# not thru wall
+			next if index($self->{nomove}, $self->{map}->[$tx][$ty]) >= 0;
 
 			next if $bread[$tx][$ty];		
 			$bread[$tx][$ty] = '.'; 	#been there
@@ -340,7 +345,9 @@ sub findpath {
 
 =item findclose(x1, y1, x2, y2)
 
-Returns the closest you can get to x2,y2 from x1,y2 without going through a "nomove" symbol
+Returns the closest you can get to x2,y2 from x1,y2 without going through a "nomove" symbol.
+
+Return value is (X,Y) array, or undefined if there's no path.
 
 =cut
 
@@ -362,15 +369,15 @@ sub findclose {
                         my $tx = $DD[$d]->[0]+$c->[0];
                         my $ty = $DD[$d]->[1]+$c->[1];
 
+                        # not off edge
+                        next if $tx < 0 || $ty < 0;
+                        next if $tx >= $self->{w} || $ty >= $self->{h};
+
                         # not thru void
                         next if !defined($self->{map}->[$tx][$ty]) || $self->{map}->[$tx][$ty] eq '';
 
                         # not thru wall
 			next if index($self->{nomove}, $self->{map}->[$tx][$ty]) >= 0;
-
-                        # not off edge
-                        next if $tx < 0 || $ty < 0;
-                        next if $tx >= $self->{w} || $ty >= $self->{h};
 
                         next if $bread[$tx][$ty];
                         $bread[$tx][$ty] = '.';     #been there
@@ -399,7 +406,9 @@ sub findclose {
 
 =item maxcardinal ()
 
-Maximum direction someone can walk from x/y in each of 4 cardinal directions, returned as an array of points
+Maximum point someone can walk from x/y in each of 4 cardinal directions, returned as an array of XY arrays.
+
+Array is sorted n,s,e,w.
 
 =cut
 
@@ -437,13 +446,15 @@ sub maxcardinal {
 
 =item digone (x, y, $ws, $fs)
 
-"digs" one square of the map, at position x,y - turning it into a "floor", 
+"Digs" one square of the map, at position x,y - turning it into a "floor", 
 while also turning the surrounding areas into "walls", if they are currently
 not assigned.
 
-Optionall specify wall & floor symbols
+Optionally can specify wall & floor symbols (or uses area defaults).
 
-Does nothing if the square is not a wall or void
+Does nothing if the map symbol at x,y is not a wall or void.
+
+Returns the number of walls that the new point is surrounded by or -1 if the point was off the map. 
 
 =cut
 
@@ -457,7 +468,7 @@ sub digone {
 	return -1 if ($x <=0 || $y <= 0);
 	return -1 if ($x >=($self->{w}-1) || $y >= ($self->{h}-1));
 
-	my $inroom = 0;
+	my $numw = 0;
 
 	my $c = $self->{map}->[$x][$y];
 	return unless !defined($c) || ($c eq $ws) || ($c eq '');
@@ -467,14 +478,14 @@ sub digone {
                 my $tx = $DD[$d]->[0]+$x;
                 my $ty = $DD[$d]->[1]+$y;
 		my $c = $self->{map}->[$tx][$ty];
-		++$inroom unless !defined($c) || $c eq $ws || $c eq '';
 		next unless !defined($c) || $c eq $ws || $c eq '';
 		$self->{map}->[$tx][$ty] = $ws;
+		++$numw;
        	}
 
 	#$self->drawmap();
 	
-	return $inroom;
+	return $numw;
 }
 
 sub debug {
@@ -503,9 +514,9 @@ sub nexttosym {
 
 =item makepath(x1, y1, x2, y2)
 
-Drill a right-angled corridor between 2 valid points using digone()
+Drill a right-angled corridor between 2 valid points using digone().
 
-Notably the whole auto-door upon breaking into an open area doesnt work right, and should
+** Notably the whole auto-door upon breaking into an open area doesn't always work right, and should.
 
 =cut
 
@@ -625,7 +636,7 @@ sub makepath {
 
 =item findfeature (symbol)
 
-searches "map feature list" for the given symbol, returns coordinates if found
+Searches "map feature list" for the given symbol, returns coordinates if found.
 
 =cut
 
@@ -643,7 +654,7 @@ sub findfeature {
 
 =item addfeature (symbol [, x, y])
 
-adds a symbol to the map (to a random floor point if one is not specified), and adds it to the "feature list"
+Adds a symbol to the map (to a random open floor point if one is not specified), and also adds it to the searchable "feature list".
 
 =cut
 
@@ -678,8 +689,9 @@ sub inbound {
 
 =item genmaze2([with=>[sym1[,sym2...]])
 
-Makes a random map with a bunch of cave-like rooms connected by corridors
-Can specify a list of symbols to be added as "features" of the map
+Makes a random map with a bunch of cave-like rooms connected by corridors.
+
+Can specify a list of symbols to be added as "features" of the map.
 
 =cut
 
@@ -753,7 +765,7 @@ sub dprint {
 
 Makes a random nethack-style map with a bunch of rectangle rooms connected by corridors
 
-If you specify a "with" list, it puts those symbols on the map in random rooms
+If you specify a "with" list, it puts those symbols on the map in random rooms, and calls "addfeature" on them.
 
 =cut
 
@@ -791,8 +803,16 @@ sub genmaze1 {
 
 =item draw ({dispx=>, dispy=>, vp=>, con=>});
 
-draws the map using offset params dispx, dispy,, from the perspective of 
-$vp on the console $con - usually done after each move
+Draws the map using offset params dispx, dispy,disph,dispw, 
+
+Uses the perspective of $vp (viewpoint), if specified.  $vp can contain an x, y coordinate 
+and a "pov" integer which is the maximum sight distance.
+
+Uses the console $con to draw the map.
+
+Uses the algorithm provided by the "checkpov" function for field of view calculations.
+
+Usually done after each move.
 
 =cut
 
@@ -875,7 +895,10 @@ sub draw {
 	$con->refresh();
 }
 
-# this draws a thing that has a symbol, a color, an x and a y
+# 
+# This draws a thing that has a symbol, a color, an x and a y
+# It is called by draw() above
+#
 
 sub drawob {
 	my $self = shift;
@@ -900,22 +923,9 @@ sub drawob {
         }
 }
 
-sub attrch {
-	my $self = shift;
-	my ($con) = @_;
-	my ($color, @args) = @_;
 
-	if ($color) {
-		$con->attron($color);
-		$con->addch(@args);
-		$con->attroff($color);
-	} else {
-		$con->addch(@args);
-	}
-}
-
-# these can be easily optimized also storing items/mobs at {m-items}[x][y] and {m-mobs}[x][y]
-# but list approach is simpler for now
+# These can be easily optimized also storing items/mobs at {m-items}[x][y] and {m-mobs}[x][y]
+# But a list approach is simpler for now, and reduces some overhead on sets
 
 =item mobat (x, y)
 
@@ -935,7 +945,7 @@ sub mobat {
 
 =item items ([x, y])
 
-Returns reference to array of items located at x/y, or all items if no x/y is supplied.
+Returns reference to array of items located at x/y, or reference to array of all items if no x/y is supplied.
 
 =cut
 
@@ -955,7 +965,7 @@ sub items {
 
 =item mobs ([x, y])
 
-Returns reference to array of all mobs located at x/y, or all items if no x/y is supplied.
+Returns reference to array of all mobs located at x/y, or all mobs if no x/y is supplied.
 
 =cut
 
@@ -975,7 +985,9 @@ sub mobs {
 
 =item checkpov (vp, x, y)
 
-Returns 1 if the $vp mob can see x/y;
+Returns 1 if the $vp object (something that has an x, a y and a pov) can see x/y.
+
+Uses the "noview" area variable to determine what can be seen through.
 
 =cut
 
@@ -1053,7 +1065,10 @@ sub checkpov {
 
 =item checkmap (vp, x, y, sym)
 
-Returns 1 if the $vp mob can see x/y, 2 if they have memory of x/y, and also memorizes x/y.
+Returns 1 if the $vp mob can see x/y, 2 if $vp has a memory of x/y, 
+and also memorizes x/y if it can be seen by adding it to the vp's "memory" variable..
+
+Uses the "noview" area variable to determine what can be seen through.
 
 =cut
 
@@ -1108,7 +1123,7 @@ sub delmob {
 
 =item findrandmap (symbol[, mobok=0])
 
-Finds a random floor map location.
+Finds a random map location containing symbol (if mobok is not set, then it won't returns locations that have mobs).
 
 =cut
 
@@ -1116,27 +1131,26 @@ sub findrandmap {
     my $self = shift;
     my $sym = shift;
     my $mobok = shift;
-    my $useindex = shift;
 
-    my $dotdex = $useindex && $self->{dotdex}->{$sym} ? $self->{dotdex}->{$sym} : [];
+    my $index = [];
 
-    if (!@{$dotdex}) {
-	for (my $x = 0; $x < $self->{w}; ++$x) {
+    for (my $x = 0; $x < $self->{w}; ++$x) {
 	for (my $y = 0; $y < $self->{h}; ++$y) {
-		push @{$dotdex}, [$x, $y] 
+		push @{$index}, [$x, $y] 
 			if defined($self->{map}->[$x][$y]) 
 			&& ($self->{map}->[$x][$y] eq $sym && ($mobok || !$self->mobat($x,$y)));
 	}
 	}
-	$self->{dotdex}->{$sym} = $dotdex;
-    }
-    my $i = int(rand() * scalar(@{$dotdex}));
-    return $dotdex->[$i]->[0], $dotdex->[$i]->[1];
+    $self->{index}->{$sym} = $index;
+
+    my $i = int(rand() * scalar(@{$index}));
+
+    return $index->[$i]->[0], $index->[$i]->[1];
 }
 
-=item dump (all)
+=item dump
 
-Prints map to stdout.  If all is not true, the just prints at the current point of view.
+Prints map to stdout, without mobs and items.   For a more flexible approach, create a ::Console::Dump object and call draw() using it.
 
 =cut
 
@@ -1178,6 +1192,8 @@ Return value 0 		= can't add, too full
 Return value 1 		= add ok
 Return value -1 	= move occured, but not added
 
+If the item doesn't have an {x} and {y} value then the item is added to a random location.
+
 =cut
 
 sub additem {
@@ -1212,7 +1228,7 @@ sub delitem {
 Loads an area from a file, which is a perl program that sets these vars:
 
  $map 		: 2d map as one big string
- $yxarray	: 2d map as y then x indexed array
+ or $yxarray	: 2d map as y then x indexed array
  %key		: for each symbol in the map *optionally* provide:
 	color	- color of that symbol
 	sym	- real symbol to use
@@ -1224,40 +1240,43 @@ Loads an area from a file, which is a perl program that sets these vars:
 
 Alternatively, these can be passed as named options to the load function.
 
-'>', and '<' are assumed to be "stair features" unless otherwise specified.
-
-Objects can be looked up by name from the item library instead of specified in full.
-
-Classes should add themselves, somehow, to the area object on new.
-
-The example below loads a standard map, with blue doors, 2 mobs and 1 item
-
-One mob is loaded via a package "mymonster", and is passed "hd", "name", and "items" parameters,
-in addition to the "x", "y" and "sym" derived from its location.
-
-The other is loaded from the library named "blue dragon", and has it's name and "hp" parameters modified.
-
 The map system knows very little about game semantics.   It's merely a way of loading maps
  made of symbols - some of which may correlate to perl objects.  The tictactoe example script
 uses the map load system.
 
-lib: 
+'>', and '<' are assumed to be "stair features" unless otherwise specified.
 
-If a key entry has a "lib" entry, it's assumed to the be the name of an entry in the lib hash.
+Objects can be looked up by name from the item library instead of specified in full.
 
-The lib hash is looked up and copied as values into the key entry before using the key entry.
+At a minimum, classes must add themselves, somehow, to the area object when new is called.
+
+  The example below loads a standard map, with blue doors, 2 mobs and 1 item
+
+  One mob is loaded via a package "mymonster", and is passed "hd" & "name" parameters,
+  in addition to the "x", "y" and "sym" parameters which are derived from its location.
+
+  The other mob is loaded from the library named "blue dragon", and has it's "name" and "hp" 
+  parameters modified.
+
+About lib entries: 
+
+If a key entry has a "lib", it's assumed to the be the name of an entry in the lib hash.
+
+The lib hash is then looked up and has its values copied into the key entry before using the key entry.
 
 "lib" entries can be recursive.
 
 The "lib" can be loaded from an external shared file, so multiple maps can use the same "lib".
 
-items:
+About items:
 
-The "items" member of an object (mob or backpack), if an array reference, will be auto-expanded 
-by creating an item object for each array member with the parent object set as the container (first argument to new).
+The "items" member of an object (mob or backpack), if it is an array reference, will be auto-expanded 
+by creating an item object for each array member with the parent object set as the first, unnamed, argument to new.
 
 If a member of the items array is a hash ref, it's treated like a key entry.  If it's a scalar string, it's
-equivalent to {lib=>'string'}. 
+equivalent to {lib=>'string'}.
+
+If there's no class set within an item, a warning is emitted.
 
 EXAMPLE 1:
 

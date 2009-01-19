@@ -6,8 +6,8 @@ Games/Roguelike/Console/Dump.pm
 Games/Roguelike/Console/Win32.pm
 Games/Roguelike/Item.pm
 Games/Roguelike/Mob.pm
-Games/Roguelike/Pov_C.pm
 Games/Roguelike/Utils.pm
+Games/Roguelike/Utils/Pov_C.pm
 Games/Roguelike/World.pm
 Games/Roguelike/World/Daemon.pm
 LICENSE
@@ -21,6 +21,7 @@ scripts/netgame
 scripts/synop
 scripts/testpov
 scripts/testtag
+scripts/tictactoe
 t/001_load.t
 t/002_pov.t
 t/003_synop.t

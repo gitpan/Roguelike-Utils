@@ -7,6 +7,10 @@ our @ISA=qw(Exporter);
 use Carp qw(croak);
 use warnings::register;
 
+our $REV = '$Revision: 161 $';
+$REV =~ m/: (\d+)/;
+our $VERSION = '0.4.' . $1;
+
 =head1 NAME
 
 Games::Roguelike::Console - platform-neutral console handling
@@ -131,20 +135,23 @@ sub new {
 	}
 	
 	$opt{type} = '' if !defined $opt{type};
+
+	$opt{type} = 'win32' 	if $OK_WIN32;
+	$opt{type} = 'curses' 	if $OK_CURSES;
+	$opt{type} = 'ansi' 	if $opt{type} eq '';
 	
 	if ($opt{type} eq 'ansi') {
 		return new Games::Roguelike::Console::ANSI @_;
 	}
-	if ($opt{type} =~ /dump:(.*):?(.*)/) {
+	if ($opt{type} =~ /dump:?(.*):?(.*)/) {
 		return new Games::Roguelike::Console::Dump @_, file=>$1, keys=>$2;
 	}
-	if ($OK_WIN32) {
+	if ($opt{type} eq 'win32') {
 		return new Games::Roguelike::Console::Win32 @_;
 	}
-	if ($OK_CURSES) {
+	if ($opt{type} eq 'curses') {
 		return new Games::Roguelike::Console::Curses @_;
 	}
-	return new Games::Roguelike::Console::ANSI @_;	
 }
 
 sub DESTROY {

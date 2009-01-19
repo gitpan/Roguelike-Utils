@@ -6,9 +6,9 @@ use strict;
 
 require Exporter;
 
-# direction helpers
+# Direction helpers
 
-our $REV = '$Revision: 149 $';
+our $REV = '$Revision: 164 $';
 $REV =~ m/: (\d+)/;
 our $VERSION = '0.4.' . $1;
 
@@ -27,7 +27,7 @@ BEGIN {
 
 use Games::Roguelike::Area;
 
-eval 'use Games::Roguelike::Pov_C';
+eval 'use Games::Roguelike::Utils::Pov_C';
 
 if (!defined(&distance)) {
 	eval('

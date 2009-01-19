@@ -79,6 +79,8 @@ Either returns the current area (no arguments) or set the area (one argument).
 
 If an area is supplied, the old area has "delmob" called on it,and the new area has "addmob" called on it.
 
+=cut 
+
 sub area {
         my $self = shift;
         if (@_) {

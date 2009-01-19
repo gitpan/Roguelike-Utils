@@ -53,6 +53,10 @@ use Carp qw(croak confess carp);
 
 our $AUTOLOAD;
 
+our $REV = '$Revision: 165 $';
+$REV =~ m/: (\d+)/;
+our $VERSION = '0.4.' . $1;
+
 =item new(OPT1=>VAL1, OPT2=>VAL2...)
 	
 Options can also all be set/get as class accessors:

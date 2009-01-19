@@ -1,4 +1,4 @@
-package Games::Roguelike::Pov_C;
+package Games::Roguelike::Utils::Pov_C;
 
 use Exporter qw(import);
 our @EXPORT = qw(checkpov_c distance findclose_c);

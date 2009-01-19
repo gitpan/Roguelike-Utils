@@ -50,6 +50,7 @@ sub init {
 		$opt{out} = new IO::File;
 		open($opt{out}, ">" . $opt{file});
 	}
+
 	$self->{out} = *STDOUT{IO} 
 		unless $self->{out} = $opt{out};
 
