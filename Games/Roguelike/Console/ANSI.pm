@@ -76,13 +76,28 @@ sub init {
 
 	my $out = $self->{out};
 
-	($self->{winx}, $self->{winy}) = GetTerminalSize();
+	$self->{usereadkey} = 1 if !defined($self->{usereadkey}=$opt{usereadkey});
+
+	if ($self->{usereadkey}) {
+	# this call will *close the connection* if it fails (which is silly to say the least)
+	eval {
+		($self->{winx}, $self->{winy}) = GetTerminalSize();
+	};
+	}
+
+	if (!$self->{winx}) {
+		($self->{winx}, $self->{winy}) = (80,40);
+		$self->{usereadkey} = 0;
+	}
+
         $self->{invl}=$self->{winx}+1;
         $self->{invr}=-1;
         $self->{invt}=$self->{winy}+1;
         $self->{invb}=-1;
 
-	eval {ReadMode 'cbreak', $self->{in}};
+	if ($self->{usereadkey}) {
+		eval {ReadMode 'cbreak', $self->{in}};
+	}
 
 	print $out ("\033[2J"); 	#clear the screen 
 	print $out ("\033[0;0H"); 	#jump to 0,0
@@ -98,7 +113,6 @@ sub init {
 
 	}
 	$self->{reset} = color('reset');
-
 }
 
 sub clear {

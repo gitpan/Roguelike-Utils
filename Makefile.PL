@@ -6,12 +6,14 @@ use ExtUtils::MakeMaker;
 # extract version from Utils file
 # this is basically the Maj.Min.subversion number ... for all files
 
-my $ver = getver('Games/Roguelike/Utils.pm');
-my $ver2 = getver('Games/Roguelike/World.pm');
+my $ver = 0;
 
-if ($ver2 > $ver) {
-	$ver = $ver2;
+for (qw(Games/Roguelike/Utils.pm Games/Roguelike/World.pm Games/Roguelike/World/Daemon.pm)) {
+	my $ver2 = getver($_);
+	$ver = $ver2 if ($ver2 gt $ver);
 }
+
+die "Can't get version from files" unless $ver;
 
 my @exe_files = qw(scripts/example scripts/netgame scripts/tictactoe);
 
@@ -32,13 +34,15 @@ WriteMakefile(
 
 
 sub getver {
-open(IN, $_[0]);
-my ($ver, $rev);
-while (<IN>) {
-        $rev = $1 if /Revision: (\d+)/s;
-        $ver = $1 if /VERSION[\s='"]*([\d.]+)\./s;
-        last if $ver && $rev;
-}
-close IN;
-return "$ver.$rev";
+	my ($f) = @_;
+	open(IN, $f);
+	my ($ver, $rev);
+	while (my $in=<IN>) {
+		$rev = $1 if $in =~ /Revision: (\d+)/s;
+		$ver = $1 if $in =~ /VERSION[\s='"]*([\d.]+)\./s;
+		last if $ver && $rev;
+	}
+	close IN;
+	print "$ver.$rev\n";
+	return "$ver.$rev";
 }

@@ -53,7 +53,7 @@ use Carp qw(croak confess carp);
 
 our $AUTOLOAD;
 
-our $REV = '$Revision: 165 $';
+our $REV = '$Revision: 172 $';
 $REV =~ m/: (\d+)/;
 our $VERSION = '0.4.' . $1;
 
