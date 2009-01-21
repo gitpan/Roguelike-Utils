@@ -34,22 +34,22 @@ sub testsynop {
 	}
 
 	undef $!;
-	if (!open(IN, "pod2text \"$file\"|")) {
-		diag("pod2text \"$file\" failed: $!");
+	if (!open(IN, $file)) {
 		return 0; 
 	}
 
 	while(<IN>) {
-		last if /^SYNOPSIS/;
+		last if /^=head1 SYNOPSIS/;
 	}
 	while(<IN>) {
-		last if /^[A-Z]+\s*$/;
+		last if /^=[a-z]+/;
+		next unless /^\s/;
 		$synop .= $_;
 	}
 	close IN;
 	
 	if (!$synop) {
-		diag("pod2text '$file' failed");
+		diag("extract synopsis from '$file' failed");
 		return 0; 
 	}
 	

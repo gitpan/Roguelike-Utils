@@ -111,7 +111,16 @@ sub newarea {
 	my ($name, $char) = @_;
 	my $level = new Games::Roguelike::Area(name=>$name, world=>$r);
 
-	$level->genmaze2(with=>['<','>']);
+	if ($name >= 3) {
+		# maze map
+		$level->genmaze3(with=>['<','>']);
+	} elsif ($name >= 2) {
+		# cave map
+		$level->genmaze2(with=>['<','>']);
+	} else {
+		# room map
+		$level->genmaze1(with=>['<','>']);
+	}
 	
 	## This works nicely now
 	#

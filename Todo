@@ -6,6 +6,7 @@ Figure out how to resize the console on windows.
 
 Include a "wilderness" generator.
 
-#0.1# Add a way to load map and mob definitions from external files.
+Maze generators should be loaded like DBI modules... with "genmaze" taking a "method" argument, which coresponds to a .pm module sitting in a directory somewhere.
+
 
 Get Save/Load world to work on Win32

@@ -8,7 +8,7 @@ use ExtUtils::MakeMaker;
 
 my $ver = 0;
 
-for (qw(Games/Roguelike/Utils.pm Games/Roguelike/World.pm Games/Roguelike/World/Daemon.pm)) {
+for (qw(Games/Roguelike/Utils.pm Games/Roguelike/World.pm Games/Roguelike/World/Daemon.pm Games/Roguelike/Area.pm)) {
 	my $ver2 = getver($_);
 	$ver = $ver2 if ($ver2 gt $ver);
 }
