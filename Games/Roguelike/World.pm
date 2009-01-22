@@ -53,7 +53,7 @@ use Carp qw(croak confess carp);
 
 our $AUTOLOAD;
 
-our $REV = '$Revision: 172 $';
+our $REV = '$Revision: 187 $';
 $REV =~ m/: (\d+)/;
 our $VERSION = '0.4.' . $1;
 
@@ -72,6 +72,7 @@ Options can also all be set/get as class accessors:
 	fsym => '.', 			# default floor symbol
 	dsym => '+', 			# default door symbol
 	debugmap => 0, 			# turn on map coordinate display
+	debug => 0, 			# debug level (higher = more)
 	noview => '#+', 		# list of symbols that block view
 	nomove => '#', 			# list of symbols that block movement	
 	area => undef,			# Games::Roguelike::Area that contains the currrent map
@@ -188,15 +189,24 @@ sub AUTOLOAD {
 sub DESTROY {
 }
 
-=item dprint ( msg1 [,msg2 ,msg3 ...] )
+=item dprint ( msg1 [,msg2...msgn] [,level] )
 
 Debug print messages
+
 For now, hard coded to far right side of screen, at col 82, past most terminal game widths
 
 =cut
  
 sub dprint {
 	my $self = shift;
+
+	my $level = 1;
+
+	# last arg is an integer number
+	$level = pop  if int(0+$_[$#_]) eq $_[$#_];
+
+	return unless $self->{debug} >= $level;
+
 	#windows cant have a "wide" console
 	if ($self->{con} && ref($self->{con}) !~ /win32/i && ref($self->{con}) !~ /dump/i) {
 		my $msg = substr(join("\t",@_),0,40);

@@ -136,10 +136,13 @@ sub new {
 	
 	$opt{type} = '' if !defined $opt{type};
 
-	$opt{type} = 'win32' 	if $OK_WIN32;
-	$opt{type} = 'curses' 	if $OK_CURSES;
+	if ($opt{type} eq '') {
+		$opt{type} = 'win32' 	if $OK_WIN32;
+		$opt{type} = 'curses' 	if $OK_CURSES;
+	}
+
 	$opt{type} = 'ansi' 	if $opt{type} eq '';
-	
+
 	if ($opt{type} eq 'ansi') {
 		return new Games::Roguelike::Console::ANSI @_;
 	}

@@ -8,7 +8,7 @@ require Exporter;
 
 # Direction helpers
 
-our $REV = '$Revision: 164 $';
+our $REV = '$Revision: 186 $';
 $REV =~ m/: (\d+)/;
 our $VERSION = '0.4.' . $1;
 
@@ -17,11 +17,12 @@ our @DIRS = ('n','s','e','w','ne','se','nw','sw', '.');                         
 our @DD = ([0,-1],[0,1],[1,0],[-1,0],[1,-1],[1,1],[-1,-1],[-1,1],[0,0]);         # map offsets caused by moving in these dirs
 our %DD = ('n'=>[0,-1],'s'=>[0,1],'e'=>[1,0],'w'=>[-1,0],'ne'=>[1,-1],'se'=>[1,1],'nw'=>[-1,-1],'sw'=>[-1,1], '.'=>[0,0]);       # name/to/offset map
 our %DI = ('n'=>0,'s'=>1,'e'=>2,'w'=>3,'ne'=>4,'se'=>5,'nw'=>6,'sw'=>7,'.'=>8);          # name/to/index map
+our @CWDIRS = ('n','ne','e','se','s','sw','w','nw');				 #clockwise directions
 
 BEGIN {
 	require Exporter;
 	our @ISA=qw(Exporter);
-	our @EXPORT_OK = qw(min max ardel rarr distance randsort intify randi $DIRN @DD %DD %DI @DIRS round);
+	our @EXPORT_OK = qw(min max ardel rarr distance randsort intify randi $DIRN @DD %DD %DI @DIRS @CWDIRS round);
 	our %EXPORT_TAGS = (all=>\@EXPORT_OK);
 }
 
@@ -47,7 +48,7 @@ sub randsort {
         my @a = @_;
         my @d;
         while (@a) {
-                push @d, splice(@a, rand()*$#a, 1);
+                push @d, splice(@a, rand()*scalar(@a), 1);
         }
         return @d;
 }

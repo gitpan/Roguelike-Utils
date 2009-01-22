@@ -26,6 +26,7 @@ my $r = Games::Roguelike::World->new(
 	dispx=>0,
 	dispy=>3,
 	msgh=>3,
+	debug=>1,
 	console_type=>$opt_console
 );
 

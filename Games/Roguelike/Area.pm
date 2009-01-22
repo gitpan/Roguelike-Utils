@@ -45,7 +45,7 @@ use Carp qw(croak confess carp);
 our $OKINLINEPOV;
 our $AUTOLOAD;
 
-our $REV = '$Revision: 180 $';
+our $REV = '$Revision: 186 $';
 $REV =~ m/: (\d+)/;
 our $VERSION = '0.4.' . $1;
 
@@ -126,6 +126,7 @@ sub init {
 	$self->{noview} = $self->{wsym}.$self->{dsym} unless $self->{noview};
 	if ($self->{world}) {
 		$self->{world}->addarea($self);
+		$self->{world}->area($self) if !$self->{world}->area;
 	}
 }
 
@@ -238,7 +239,7 @@ sub rpoint_empty {
 ############ part of genmaze1 ############
 
 sub genroom {
-	# make a room centered on x/y with optional minimum x/y size
+	# make a room around x/y with optional minimum size
         my $self = shift;
         my ($x, $y, $flag) = @_;
 	my $m = $self->{map};
@@ -256,13 +257,11 @@ sub genroom {
 	}
 
 	# top left corner of room (not including walls)
-	my $rx = max(1,1+($x - $rw/2));
-	my $ry = max(1,1+($y - $rh/2));
+	my $rx = min($x, max(1,int(rand() + $x - ($rw-1)/2)));
+	my $ry = min($y, max(1,int(rand() + $y - ($rh-1)/2)));
 
-	$rw = min($rw, $self->{w}-$rx);
-	$rh = min($rh, $self->{h}-$ry);
-
-	intify($rh, $rw, $rx, $ry);
+	$rw = min($rw, $self->{w}-$rx-1);
+	$rh = min($rh, $self->{h}-$ry-1);
 
 	if (!$rh || !$rw) {
 		#push @{$self->{f}}, [$rx, $ry, 'NULLROOM'];
@@ -272,30 +271,44 @@ sub genroom {
 	if ($flag =~ s/NOOVERL?A?P//i) {
 		my $ov = 0;
 		for (my $i = -1; $i <= $rw; ++$i) {
-                	$ov=1 if $m->[$rx+$i][int($ry+($i * $ry/$rx))];
+			if ($m->[$rx+$i][int($ry+($i * $rw/$rh))]) {
+				$rw = $i-1;
+				$rh = int(($i * $rw/$rh)) - 1;
+			}
 		}
-		if ($ov) {
-			#push @{$self->{f}}, [$rx, $ry, 'NULLROOM'];
+		if ($rw <= 1 || $rh <= 1) {
 			return 0;
 		}
 	}
+
+	intify($rx, $ry, $rw, $rh);
+
+	if ($x > ($rx+$rw) || $y > ($ry+$rh)) {
+		return 0;
+	}
+
 	for (my $i = -1; $i <= $rw; ++$i) {
-		next if $rx+$i < 0;
-		$m->[$rx+$i][$ry-1] = $self->{wsym} unless $m->[$rx+$i][$ry-1] || $ry == 0;
-		$m->[$rx+$i][$ry+$rh] = $self->{wsym} unless $m->[$rx+$i][$ry+$rh];
+		next if ($rx+$i) < 0;
+		$m->[$rx+$i][$ry-1] 	= $self->{wsym} unless $m->[$rx+$i][$ry-1] || ($ry == 0);
+		$m->[$rx+$i][$ry+$rh] 	= $self->{wsym} unless $m->[$rx+$i][$ry+$rh];
 	}
 	for (my $i = 0; $i < $rw; ++$i) {
         for (my $j = 0; $j < $rh; ++$j) {
-                $m->[$rx+$i][$ry+$j] = $self->{fsym} unless $m->[$rx+$i][$ry+$j];
+                $m->[$rx+$i][$ry+$j] 	= $self->{fsym} unless $m->[$rx+$i][$ry+$j];
         }
 	}
 	for (my $i = -1; $i <= $rh; ++$i) {
-		next if $ry+$i < 0;
-		next if $rx == 0;
-		$m->[$rx-1][$ry+$i] = $self->{wsym} unless $m->[$rx-1][$ry+$i] || $rx == 0;
-		$m->[$rx+$rw][$ry+$i] = $self->{wsym} unless $m->[$rx+$rw][$ry+$i];
+		next if ($ry+$i) < 0;
+		$m->[$rx-1][$ry+$i] 	= $self->{wsym} unless $m->[$rx-1][$ry+$i] || ($rx == 0);
+		$m->[$rx+$rw][$ry+$i] 	= $self->{wsym} unless $m->[$rx+$rw][$ry+$i];
 	}
-	#$m->[$x][$y] = 'R' if $self->debug;
+
+	if (0) {
+		my $sig = chr(64 + int($rw));
+		print "$sig:$rx, $ry / $rw,$rh\n";
+		$m->[$x][$y] = $sig;
+		$m->[$rx][$ry] = 'C';
+	}
 
 	push @{$self->{f}}, [$x, $y, 'ROOM'];
 
@@ -314,6 +327,8 @@ sub findpath {
 	my $self = shift;
 	my ($x1, $y1, $x2, $y2) = @_;
 	my $f;
+
+	return 1 if ($x1 == $x2 && $y1 == $y2);
 
 	my @f;
 	my @bread;
@@ -472,8 +487,6 @@ sub digone {
 	return -1 if ($x <=0 || $y <= 0);
 	return -1 if ($x >=($self->{w}-1) || $y >= ($self->{h}-1));
 
-	my $numw = 0;
-
 	my $c = $self->{map}->[$x][$y];
 	return unless !defined($c) || ($c eq $ws) || ($c eq '');
 	$self->{map}->[$x][$y] = $fs;
@@ -482,14 +495,13 @@ sub digone {
                 my $tx = $DD[$d]->[0]+$x;
                 my $ty = $DD[$d]->[1]+$y;
 		my $c = $self->{map}->[$tx][$ty];
-		next unless !defined($c) || $c eq $ws || $c eq '';
+		next unless !defined($c) || $c eq '';
 		$self->{map}->[$tx][$ty] = $ws;
-		++$numw;
        	}
 
 	#$self->drawmap();
 	
-	return $numw;
+	return 1;
 }
 
 sub debug {
@@ -516,13 +528,64 @@ sub nexttosym {
 	return undef;
 }
 
+
+=item okdoor(x, y)
+
+Looks at the clockwize adjacent symbols for an alternating pattern of walls and floors, to see if a door
+would be meaningful.
+
+Uses {nomove} as the list of "wall" symbols.
+
+=cut
+
+sub okdoor {
+        my $self = shift;
+        my ($x, $y) = @_;
+        my $cnt = 0;
+	my $cur;
+	my $first;
+	my $flip = 0;
+        for (@CWDIRS) {
+                my $tx = $x + $DD{$_}->[0];
+                my $ty = $y + $DD{$_}->[1];
+		my $sym = $self->{map}[$tx][$ty];
+                my $wl = !defined($sym) || (index($self->{nomove}, $sym) >= 0) || $sym eq $self->{dsym};
+		if (! defined $cur) {
+			$cur = $wl;
+			$first = $wl;
+		} else {
+			if ($cur != $wl) {
+				++$flip;
+				$cur = $wl;
+			}
+		}
+		 
+        }
+	if ($cur != $first) {
+		++$flip;
+	}
+
+        return $flip == 4;
+}
+
 =item makepath(x1, y1, x2, y2)
 
-Drill a right-angled corridor between 2 valid points using digone().
+Drill a right-angled corridor between 2 nonempty points using digone().
 
 ** Notably the whole auto-door upon breaking into an open area doesn't always work right, and should.
 
 =cut
+
+sub placedoors {
+	my $self=shift;
+	my @doors = @_;
+        for (@doors) {
+                my ($x, $y) = @$_;
+                if ($self->okdoor($x, $y) && $self->{dsym}) {
+                        $self->{map}->[$x][$y] = $self->{dsym};
+                }
+        }
+}
 
 sub makepath {
         my $self = shift;
@@ -581,8 +644,9 @@ sub makepath {
 	}
 	intify($x, $y);
 
+	my @doors;
+
 	my $firstdig = 1;		# first dig out of an area gets a door
-	my $firstinr = 1;		# first dig *into* an area gets a door
 	for my $d (@d) {
 		next unless $d;
 
@@ -595,46 +659,95 @@ sub makepath {
 	        }
 
 		my $already_dug = 0;
+		my $waswall = 0;
 	
 		for (my $i = 0; $i < $len; ++$i) {
+			my ($px,$py) = ($x, $y);
 			$x += $DD{$d}->[0];
 			$y += $DD{$d}->[1];
-			my $inr = 0;	# did i just dig into an open space?
-			if ($self->{map}->[$x][$y] eq $self->{wsym} || $self->{map}->[$x][$y] eq '') {
-				#$self->dprint("digging at $x, $y");
-				if ($self->{dsym} && $firstdig && ($self->{map}->[$x][$y] eq $self->{wsym})) {
-					$inr = $self->digone($x,$y);
-					$self->{map}->[$x][$y] = $self->{dsym};
-					$inr = $firstdig = 0;
-				} else {
-					$inr = $self->digone($x,$y);
+
+			my $iswall = $self->{map}->[$x][$y] eq $self->{wsym};
+			if ($iswall || $self->{map}->[$x][$y] eq '') {
+				$self->digone($x,$y);
+				if ($firstdig) {
+                                	push @doors, [$x, $y];
+					$firstdig = 0;
 				}
 			} else {
+				# not a wall, already dug
 				$already_dug = 1;
-			}
-
-			if ($already_dug) {
-				if ($self->{dsym} && $firstinr) {
-					$self->{map}->[$x][$y] = $self->{dsym} if $inr == 2 || $inr == 3;
-					#$self->{color}->[$x][$y] = 'blue';
-					$firstinr = 0;
+				if ($waswall) {
+                                	push @doors, [$px, $py];
+				} else {
+					# 2 non walls in a row = reset firstdig
+					$firstdig = 1;
 				}
 			}
+			$waswall = $iswall;
 
-                        my ($fx, $fy, $dist) = $self->findclose($x, $y, $x2, $y2);
-                        return 1 if $dist == 0;
 			
-                        if ( ($inr >=4 || $already_dug) && distance($fx, $fy, $x, $y) > 2 ) {
-				#$self->dprint("inr $inr: changing start point to $fx,$fy");
-				#getch();
-                        	return $self->makepath($fx, $fy, $x2, $y2);
+                        if ( $already_dug ) {
+                        	my ($fx, $fy, $dist) = $self->findclose($x, $y, $x2, $y2);
+				if (&distance($fx, $fy, $x, $y) >= 2 ) {
+					my $res = $self->makepath($fx, $fy, $x2, $y2);
+                        		$self->placedoors(@doors);
+					return $res;
+				}
+                        	last if $dist == 0;
                         }
-			last if $x<=1 || $y<=1;
-			last if $x>=$self->{w} || $y>=$self->{h};
+
+			#$self->{world}->drawmap();
+			# too close to edge
+			last if $x<=1 || $y<=1 || $x>=($self->{w}-1) || $y>=($self->{h}-1);
 		}
+		last if ($x == $x2 && $y == $y2);
 	}
+
 	
+	if (!$self->findpath($ox, $oy, $x2, $y2)) {
+		$self->makepath2($ox, $oy, $x2, $y2);
+	}
+
+        $self->placedoors(@doors);
+
         return 1;
+}
+
+=item makepath2 (x1, y1, x2, y2)
+
+Like makepath, but diagonal and with no doors.
+
+=cut
+
+
+sub makepath2 {
+        my $self = shift;
+        my ($ox, $oy, $x2, $y2) = @_;
+
+        croak "can't make a path without floor and wall symbols set"
+                unless $self->{wsym} && $self->{fsym};
+
+        my ($x, $y) = ($ox, $oy);
+
+	($x, $y) = $self->findclose($x, $y, $x2, $y2);
+
+	while (($x != $x2) || ($y != $y2)) {
+		$self->digone($x, $y);
+		my $d;
+        	if ($y < $y2) {
+                	$d = 's';
+        	} elsif ($y > $y2) {
+                	$d = 'n';
+        	}
+		if ($x < $x2) {
+			$d .= 'e';
+		} elsif ($x > $x2) {
+			$d .= 'w';
+		}
+
+                $x += $DD{$d}->[0];
+                $y += $DD{$d}->[1];
+	}
 }
 
 
@@ -749,9 +862,6 @@ sub genmaze2 {
                 if ($px) {
                         if (!$self->findpath($x, $y, $px, $py)) {
                                 $self->makepath($x, $y, $px, $py);
-	                        if (!$self->findpath($x, $y, $px, $py)) {
-					$self->dprint("make path from $x, $y to $px, $py failed");
-				}
                                 #$self->drawmap();
                                 #$self->getch();
                         }
@@ -762,7 +872,11 @@ sub genmaze2 {
 
 sub dprint {
 	my $self=shift;
-	$self->{world}->dprint(@_) if $self->{world};
+	if ($self->{world}) {
+		$self->{world}->dprint(@_)
+	} else {
+		print @_, "\n";
+	} 
 }
 
 =item genmaze1 ([with=>[sym1[,sym2...]])
@@ -779,16 +893,18 @@ sub genmaze1 {
 
 	my ($m, $fx, $fy);
 
+	my $rooms = 0;
+
 	for my $feature (@{$opts{with}}) {
 		($fx, $fy) = $self->rpoint_empty();
 		$self->{map}->[$fx][$fy]=$feature;
 		push @{$self->{f}}, [$fx, $fy, 'FEATURE'];
-		$self->genroom($fx, $fy);		# put rooms around features
+		++$rooms if $self->genroom($fx, $fy);		# put rooms around features
 	}
 
 	# some extra rooms
-	for (my $i = 0; $i < rand()*10; ++$i) {
-		$self->genroom(($fx, $fy) = $self->rpoint_empty(), 'NOOVERLAP');
+	while($rooms < ($self->{w}*$self->{h}/600)) {
+		++$rooms if $self->genroom(($fx, $fy) = $self->rpoint_empty(), 'NOOVERLAP');
 	}
 
 	# dig out paths
@@ -798,6 +914,13 @@ sub genmaze1 {
 		if ($px) {
 			if (!$self->findpath($x, $y, $px, $py)) {
 				$self->makepath($x, $y, $px, $py);
+				if (!$self->findpath($x, $y, $px, $py)) {
+					$self->{map}->[$px][$py] = '1';
+					$self->{map}->[$x][$y] = '2';
+					$self->dump();
+					die "makepath failed!!!\n";
+					$self->makepath($x, $y, $px, $py);
+				}
 				#$self->drawmap();
 			}
 		}
