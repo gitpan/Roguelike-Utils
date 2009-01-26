@@ -1,6 +1,6 @@
 package Games::Roguelike::Area;
 
-# puposely don't use much of the curses windowing since curses doesn't port well
+# puposely don't use much of the curses windowing stuff since curses doesn't port well
 # purpose of library:
 #
 #     keep track of map/location
@@ -10,7 +10,7 @@ package Games::Roguelike::Area;
 
 =head1 NAME
 
-Games::Roguelike::Area - roguelike area map
+Games::Roguelike::Area - Roguelike area map
 
 =head1 SYNOPSIS
 
@@ -45,9 +45,7 @@ use Carp qw(croak confess carp);
 our $OKINLINEPOV;
 our $AUTOLOAD;
 
-our $REV = '$Revision: 186 $';
-$REV =~ m/: (\d+)/;
-our $VERSION = '0.4.' . $1;
+our $VERSION = '0.4.' . [qw$Revision: 224 $]->[1];
 
 BEGIN {
         eval('use Games::Roguelike::Utils::Pov_C;');
@@ -69,10 +67,11 @@ Options can also all be set/get as class accessors:
 
         w=>80, h=>40,			# width/height of this area
         debugmap => 0, 			# turn on map coordinate display
+	memcolor => 'gray',		# color drawn when an area is not in sight
 
- # These vars, which default to world defaults
+ # These vars, or the world defaults (if a world is defined)
  # are used by map-making, pathfinding and field-of view, rather than using hooks
- # specifically because function calling seems to slow things down significantly
+ # specifically because function calling seems to slow things down
 
         wsym => '#', 			# default wall symbol
         fsym => '.', 			# default floor symbol
@@ -112,7 +111,8 @@ sub init {
 		$self->{dsym} = '+';
 		$self->{debugmap} = 0;
 	} else {
-		for (qw(h w noview nomove wsym fsym dsym debugmap)) {
+		# really, should create functions for each one which reads from world member
+		for (qw(h w noview nomove wsym fsym dsym debugmap memcolor)) {
 			$self->{$_} = $opts{world}->$_;
 		}
 	}
@@ -122,6 +122,7 @@ sub init {
 		$self->{$_} = $opts{$_};
 	}
 	
+	$self->{memcolor} = 'gray' unless defined $self->{memcolor};
 	$self->{nomove} = $self->{wsym} unless $self->{nomove};
 	$self->{noview} = $self->{wsym}.$self->{dsym} unless $self->{noview};
 	if ($self->{world}) {
@@ -317,7 +318,7 @@ sub genroom {
 
 =item findpath(x1, y1, x2, y2)
 
-Returns 1 if there is a path from x1,y2 to x2,y2.  Uses "nomove" member as the list of symlos that cannot be moved throug.
+Returns 1 if there is a path from x1,y2 to x2,y2.  Uses "nomove" member as the list of symbols that cannot be moved through.
 
 =cut
 
@@ -1106,7 +1107,7 @@ sub draw {
 			if (my $memtyp = $self->checkmap($vp, $x, $y, $self->{map}->[$x][$y])) {
 				my ($color) = $self->{color}->[$x][$y];
 				my $sym = ($memtyp == 2) ? $vp->{memory}->{$self->{name}}->[$x][$y] : $self->{map}->[$x][$y] ? $self->{map}->[$x][$y] : ' ';
-				$color = 'gray' if $memtyp == 2;		# if the area is memorized, then draw as gray
+				$color = $self->{memcolor} if $memtyp == 2 && $self->{memcolor};		# if the area is memorized, then draw as gray
 				$con->attrch($color, $y-$oy+$dispy,$x-$ox+$dispx,$sym);
 			} else {
 				$con->addch($y-$oy+$dispy,$x-$ox+$dispx,' ');

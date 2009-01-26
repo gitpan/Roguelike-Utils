@@ -23,14 +23,17 @@ my $KEY_LEFT = Curses::KEY_LEFT;
 my $KEY_RIGHT = Curses::KEY_RIGHT;
 my $KEY_DOWN = Curses::KEY_DOWN;
 my $KEY_UP = Curses::KEY_UP;
+my $KEY_DELETE = Curses::KEY_DC;
+my $KEY_BACKSPACE = Curses::KEY_BACKSPACE;
+my %CONDATA;
 
 sub init {
 	my $self = shift;
 	my %opts = @_;
-
 	if (!$opts{noinit}) {
 		$self->keypad(1);
 		$self->color_init();
+		$self->SUPER::init(%opts);
 		curs_set(0);
 		noecho();
 		cbreak();
@@ -77,10 +80,10 @@ sub nativecolor {
 sub tagstr {
         my $self = shift;
 
-        my ($x, $y, $str);
+        my ($y, $x, $str);
 
         if (@_ >= 3) {
-                ($x, $y, $str) = @_;
+                ($y, $x, $str) = @_;
 		$self->move($y, $x);
         } elsif (@_ == 1) {
                 ($str) = @_;
@@ -93,10 +96,22 @@ sub tagstr {
         for (my $i = 0; $i < length($str); ++$i) {
                 $c = substr($str,$i,1);
                 if ($c eq '<') {
-                        substr($str,$i) =~ s/<([^>]*)>//;
-			$self->attron($1) if $1;
-			$hasattr = 1;
-                        $c = substr($str,$i,1);
+                        substr($str,$i) =~ s/^<([^>]*)>//;
+			if ($1 eq 'gt') {
+				$c = '>';
+				--$i;
+			} elsif ($1 eq 'lt') {
+				$c = '<';
+				--$i;
+			} else {
+				if ($1) {
+					$self->attron($1); 
+					$hasattr = 1;
+				} else {
+					$self->attroff();
+				}
+                        	$c = substr($str,$i,1);
+			}
                 }
 		$self->addch($c);
         }
@@ -109,7 +124,7 @@ sub attron {
 	if ($ATTR) {
         	$self->SUPER::attroff($ATTR);
 	}
-	$ATTR |= $self->parsecolor($attr);
+	$ATTR = $self->parsecolor($attr);
 	$self->SUPER::attron($ATTR);
 }
 
@@ -130,6 +145,10 @@ sub getch {
 		return 'LEFT';
 	} elsif ($c eq $KEY_RIGHT) {
 		return 'RIGHT';
+	} elsif ($c eq $KEY_DELETE) {
+		return 'DELETE';
+	} elsif ($c eq $KEY_BACKSPACE) {
+		return 'BACKSPACE';
 	} elsif (ord($c) == 27) {
 		return 'ESC';
 	}

@@ -4,13 +4,11 @@ package Games::Roguelike::Utils;
 
 use strict;
 
-require Exporter;
+use Exporter qw(import);
 
 # Direction helpers
 
-our $REV = '$Revision: 186 $';
-$REV =~ m/: (\d+)/;
-our $VERSION = '0.4.' . $1;
+our $VERSION = '0.4.' . [qw$Revision: 207 $]->[1];
 
 our $DIRN = 8;                                                                   # number of ways to move (don't count ".")
 our @DIRS = ('n','s','e','w','ne','se','nw','sw', '.');                          # names of dirs (zero indexed array)
@@ -20,14 +18,13 @@ our %DI = ('n'=>0,'s'=>1,'e'=>2,'w'=>3,'ne'=>4,'se'=>5,'nw'=>6,'sw'=>7,'.'=>8); 
 our @CWDIRS = ('n','ne','e','se','s','sw','w','nw');				 #clockwise directions
 
 BEGIN {
-	require Exporter;
-	our @ISA=qw(Exporter);
-	our @EXPORT_OK = qw(min max ardel rarr distance randsort intify randi $DIRN @DD %DD %DI @DIRS @CWDIRS round);
+	our @EXPORT_OK = qw(min max ardel rarr distance randsort intify randi $DIRN @DD %DD %DI @DIRS @CWDIRS round rpad);
 	our %EXPORT_TAGS = (all=>\@EXPORT_OK);
 }
 
 use Games::Roguelike::Area;
 
+# try to load C version for speed
 eval 'use Games::Roguelike::Utils::Pov_C';
 
 if (!defined(&distance)) {
@@ -90,9 +87,16 @@ sub rarr {
 	return $arr->[$#{$arr}*rand()];
 }
 
+sub rpad {
+	my ($str, $len, $char) = @_;
+	$char = ' ' if $char eq '';
+	$str .= $char x ($len - length($str));
+	return $str;
+}
+
 =head1 NAME
 
-Games::Roguelike::Utils - convenience functions and exports for roguelikes
+Games::Roguelike::Utils - Convenience functions and exports for roguelikes
 
 =head1 SYNOPSIS
 
@@ -126,6 +130,10 @@ With 2 arguments, returns a random integer from a to b, inclusive.
 
 With 1 argument, returns a random integer form 0 to a-1.
 
+=item rpad (string, length [, char])
+
+Pads string out to length using spaces or "char" if one is specified.
+
 =back
 
 =head2 VARIABLES
@@ -147,6 +155,10 @@ Array with delta entries as above, sorted as: 'n','s','e','w','ne','se','nw','sw
 =item @DIRS - direction list
 
 The array ('n','s','e','w','ne','se','nw','sw','.')
+
+=item @CWDIRS - clockwise direction list
+
+The array ('n','ne','e','se','s','sw','w','nw'), used in door-ok and other quadrant-scanning algorithms.
 
 =item @DI - direction index
 

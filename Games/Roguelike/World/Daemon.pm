@@ -9,11 +9,9 @@ use POSIX;
 
 use IO::Socket;
 use IO::Select;
-use IO::File;
+use IO::File qw();		# this prevents warnings on win32
 
-our $REV = '$Revision: 173 $';
-$REV =~ m/: (\d+)/;
-our $VERSION = '0.4.' . $1;
+our $VERSION = '0.4.' . [qw$Revision: 200 $]->[1];
 
 use Time::HiRes qw(time);
 

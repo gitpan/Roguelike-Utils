@@ -4,7 +4,6 @@ package Games::Roguelike::Console::Win32;
 #### refer to Games::Roguelike::Console for docs ###
 
 use Win32::Console;
-use Term::ReadKey;
 use Carp;
 
 use base 'Games::Roguelike::Console';
@@ -13,9 +12,9 @@ sub new {
         my $pkg = shift;
         croak "usage: Games::Roguelike::Console::Win32->new()" unless $pkg;
 
-        my $r = bless {}, $pkg;
-        $r->init(@_);
-        return $r;
+        my $self = bless {}, $pkg;
+        $self->init(@_);
+        return $self;
 }
 
 my $CON;
@@ -23,8 +22,13 @@ my $CON;
 #todo: figure out how to free/alloc/resize
 sub init {
 	my $self = shift;
+	my %opts = @_;
+
+	$self->SUPER::init(%opts);	
 
 	$self->{conin} = Win32::Console->new(STD_INPUT_HANDLE);
+
+	# turns off echo
 	$self->{conin}->Mode(ENABLE_PROCESSED_INPUT);
 		
 	$self->{buf} = Win32::Console->new(GENERIC_READ|GENERIC_WRITE);
@@ -38,10 +42,14 @@ sub init {
 	$self->{con}->Size($self->{winx}, $self->{winy});
 	$self->{buf}->Size($self->{winx}, $self->{winy});
 
-	$self->{con}->Cursor(-1,-1,-1,0);
-	$self->{con}->Display();
-	$self->{con}->Cls();
-
+	$self->{rx} = 0 if !defined $self->{rx};
+	
+	if (!$opts{noinit}) {
+		$self->{con}->Cursor(-1,-1,-1,0);
+		$self->{con}->Display();
+		$self->{con}->Cls();
+	}
+	
 	$CON = $self->{con} unless $CON;
 	
 	$SIG{INT} = \&sig_int_handler;
@@ -65,6 +73,10 @@ sub sig_die_handler {
 
 sub nativecolor {
         my ($self, $fg, $bg, $fgb, $bgb) = @_;
+
+#	$fg = 'white' if $fg eq '';
+#	$bg = 'black' if $bg eq '';
+
 	$fg = 'light' . $fg if $fgb;
 
 	$fg = 'gray' if $fg eq 'lightblack';
@@ -73,14 +85,16 @@ sub nativecolor {
 	$bg = 'brown' if $bg eq 'yellow';
 	$fg = 'yellow' if $fg eq 'lightyellow';
 	$bg = 'yellow' if $bg eq 'lightyellow';
+	$fg = 'lightgray' if $fg eq 'white';
 	$fg = 'white' if $fg eq 'lightwhite';
 	$bg = 'white' if $bg eq 'lightwhite';
 
 	no strict 'refs';
 	my $color = ${"FG_" . uc($fg)} | ${"BG_" . uc($bg)} ;
-
+		
 	use strict 'refs';
 
+	$color = $self->defcolor if !$color;
 	return $color;
 }
 
@@ -92,7 +106,7 @@ sub attron {
 
 sub attroff {
 	my $self = shift;
-	$self->{cattr} = $ATTR_NORMAL;
+	$self->{cattr} = $self->defcolor;
 }
 
 sub addstr {
@@ -120,26 +134,46 @@ sub addstr {
 		$self->{cx} = $x + length($str);
 		$self->{cy} = $y;
 	}
+	if ($self->{cursor}) {
+		$self->{con}->Cursor($self->{cx},$self->{cy},-1,1);		
+	}
 }
 
 sub tagstr {
         my $self = shift;
-        my ($x, $y, $str);
+        my ($y, $x, $str);
         if (@_ == 1) {
-                ($x, $y, $str) = ($self->{cx}, $self->{cy}, @_);
+                ($y, $x, $str) = ($self->{cy}, $self->{cx}, @_);
         } else {
-                ($x, $y, $str) = @_;
+                ($y, $x, $str) = @_;
         }
-        my $attr;
+        my $attr = chr($self->defcolor);
         my $r = $x;
         my $c;
         for (my $i = 0; $i < length($str); ++$i) {
                 $c = substr($str,$i,1);
                 if ($c eq '<') {
                         substr($str,$i) =~ s/<([^>]*)>//;
-                        $attr = chr($self->parsecolor($1));
-                        $c = substr($str,$i,1);
+			if ($1 eq 'gt') {
+				$c = '>';
+				--$i;
+			} elsif ($1 eq 'lt') {
+				$c = '<';
+				--$i;
+                        } else {
+				$attr = chr($self->parsecolor($1));
+                        	$c = substr($str,$i,1);
+			}
                 }
+		if ($c eq "\r") {
+			next;
+		}
+		if ($c eq "\n") {
+			$r = $self->{rx};
+			$y++;
+			next;
+		}
+
                 $self->{buf}->WriteChar($c, $r, $y);
                 $self->{buf}->WriteAttr($attr, $r, $y);
                 ++$r;
@@ -212,16 +246,41 @@ sub invalidate {
 	$self->{invb} = $b if $b > $self->{invb};
 }
 
+# read 1 event, translate and return translated value
+sub getev {
+        my $self = shift;
+	my ($type, @e)= $self->{conin}->Input();
+	if ($type == 1) {
+		my ($kd, $rep, $vk, $vs, $c, $ctrl) = @e;
+		next if $kd;
+		return 'DOWN' if $vk == 0x28;
+		return 'RIGHT' if $vk == 0x27;
+		return 'LEFT' if $vk == 0x25;
+		return 'UP' if $vk == 0x26;
+		return 'ESC' if $c == 27;
+		return chr($c) if $c > 0;
+	}
+	return undef;
+}
+
 # todo, support win32 arrow/function/control keys - ReadKey ignores them
 sub getch {
         my $self = shift;
-        my $c=ReadKey(0);
-	return $c;
+	# readkey breaks on carraige returns
+	while (1) {
+		my $c = $self->getev();
+		return $c if defined $c;
+	};
 }
 
 sub nbgetch {
         my $self = shift;
-        return ReadKey(-1);
+	# readkey breaks on carraige returns
+	while ($self->{conin}->GetEvents() > 0) {
+		my $c = $self->getev();
+		return $c if defined $c;
+	};
+	return undef;
 }
 
 1;

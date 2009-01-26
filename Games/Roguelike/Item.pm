@@ -11,7 +11,7 @@ our $AUTOLOAD;
 
 =head1 NAME
 
-Games::Roguelike::Item - roguelike item
+Games::Roguelike::Item - Roguelike item object
 
 =head1 SYNOPSIS
 

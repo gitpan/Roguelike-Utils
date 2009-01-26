@@ -13,7 +13,7 @@ our $VERSION = '0.4.' . $1;
 
 =head1 NAME
 
-Games::Roguelike::Console - platform-neutral console handling
+Games::Roguelike::Console - Platform-neutral console handling
 
 =head1 SYNOPSIS
 
@@ -77,7 +77,9 @@ Reads a character from input, non-blocking
 
 =item parsecolor ()
 
-Helper function for subclass, parses an attribute then calls "nativecolor($fg, $bg, $bold)", caching the results
+Helper function for subclass, parses an attribute then calls "nativecolor($fg, $bg, $bold)", caching the results.
+
+Subclass can define this instead of nativecolor, if desired.
 
 =item tagstr ([$y, $x,] $str)
 
@@ -86,6 +88,11 @@ Moves the cursor to y, x and writes the string $str, which can contain <color> t
 =item cursor([bool])
 
 Changes the state of whether the cursor is shown, or returns the current state.
+
+=item rect(x, y, w, h)
+
+Sets the left margin (x) for things that parse out carraige returns, and is the 
+rectangle used for scrolling.
 
 =back
 
@@ -112,6 +119,8 @@ use Games::Roguelike::Console::ANSI;
 use Games::Roguelike::Console::Dump;
 
 our ($OK_WIN32, $OK_CURSES, $DUMPFILE, $DUMPKEYS);
+
+my %CONDATA;
 
 if ($^O =~ /Win32/) {
 	# console
@@ -157,6 +166,14 @@ sub new {
 	}
 }
 
+# this should be called by sublcass, unless they supply their own defcolor, rect defaults
+sub init {
+	my $self = shift;
+	my %opts = @_;
+	$self->defcolor($opts{defcolor});
+	$self->rect($opts{x}, $opts{y}, $opts{w}, $opts{h});
+}
+
 sub DESTROY {
 	croak "hey, this should never be called, override it!";
 }
@@ -165,18 +182,24 @@ my %COLORMAP;
 sub parsecolor {
 	my $self = shift;
 	my $pkg = ref($self);
-	my ($attr) = @_;
-        if (!$COLORMAP{$pkg}{$attr}) {
-                my $bg = 'black';
-                my $fg = 'white';
+	my ($attr, $parsedef) = @_;
+
+	$attr = '' if ! defined $attr;
+        if ($parsedef || !$COLORMAP{$pkg}{$attr}) {
+                my $bg = $CONDATA{$self}->{bg};
+                my $fg = $CONDATA{$self}->{fg};
                 $bg = $1 if $attr=~ s/on[\s_]+(.*)$//;
                 $fg = $attr;
                 my $bold = 0;
 		$bold = 1 if $fg =~ s/\s*bold\s*//;
 		$fg = 'white' if !$fg;
+		# trim spaces in color names
+		$fg =~ s/ //g;
+		$bg =~ s/ //g;
                 ($fg, $bold) = ('black', 1) if $fg =~ /gray|grey/;
                 ($bg, $bold) = ('black', 1) if $bg =~ /gray|grey/;
                 $COLORMAP{$pkg}{$attr} = $self->nativecolor($fg, $bg, $bold);
+		return ($COLORMAP{$pkg}{$attr}, $fg, $bg) if $parsedef;
 	}
 	return $COLORMAP{$pkg}{$attr};
 }
@@ -185,25 +208,6 @@ sub nativecolor {
 	my $self = shift;
 	my ($fg, $bg, $bold) = @_;
 	croak "nativecolor must be overridden in " . ref($self);
-}
-
-# use x/y onstad of y/x
-
-sub xych {
-	my $self = shift;
-	$self->addch($_[0]) if @_ == 1;
-	$self->addch($_[1], $_[0], $_[2]) if @_ > 1;
-}
-
-sub xystr {
-	my $self = shift;
-        $self->addstr($_[0]) if @_ == 1;
-        $self->addstr($_[1], $_[0], $_[2]) if @_ > 1;
-}
-
-sub xymove {
-        my $self = shift;
-        $self->move($_[1], $_[0]);
 }
 
 sub attrch {
@@ -230,6 +234,27 @@ sub attrstr {
         } else {
                 $self->addch(@args);
         }
+}
+
+sub rect {
+	my $self = shift;
+	my ($x, $y, $w, $h) = @_;
+	$CONDATA{$self}->{rx} = $x+0 if defined $x;
+	$CONDATA{$self}->{ry} = $y+0 if defined $y;
+	$CONDATA{$self}->{rw} = $w+0 if defined $w;
+	$CONDATA{$self}->{rh} = $h+0 if defined $h;
+	return ($CONDATA{$self}->{rx}, $CONDATA{$self}->{ry}, $CONDATA{$self}->{rw}, $CONDATA{$self}->{rh});
+}
+
+sub defcolor {
+        my $self = shift;
+	if (@_) {
+        	my ($color, $fg, $bg) = $self->parsecolor(($_[0] ? $_[0] : 'white on black'), 1);
+        	$CONDATA{$self}->{defcolor}= $color;
+        	$CONDATA{$self}->{fg}= $fg;
+        	$CONDATA{$self}->{bg}= $bg;
+	} 
+	return $CONDATA{$self}->{defcolor};
 }
 
 1;

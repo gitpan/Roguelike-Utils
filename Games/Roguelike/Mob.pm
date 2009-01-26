@@ -10,7 +10,7 @@ use Carp qw(croak confess);
 
 =head1 NAME
 
-Games::Roguelike::Mob - roguelike mobile object
+Games::Roguelike::Mob - Roguelike mobile object
 
 =head1 SYNOPSIS
 
@@ -360,12 +360,14 @@ sub autoex {
 			  @f = ();
 			  last;
 			}
-			
-                        # not thru wall
-                        next if $area->{map}->[$tx][$ty] eq '#';
-                        # not thru void
-                        last if $area->{map}->[$tx][$ty] eq '';
 
+                        # not thru void
+                        next if !defined($area->{map}->[$tx][$ty]);
+                        next if $area->{map}->[$tx][$ty] eq '';
+
+                        # not thru wall
+                        next if index($area->{nomove}, $area->{map}->[$tx][$ty]) >= 0;
+	
 	                push @f, [$tx, $ty, $p];    #add to list of places can get to;
                 }
         }

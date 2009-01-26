@@ -16,9 +16,12 @@ Games::Roguelike::Console::ANSI - socket-friendly, object oriented curses-like s
 
 =head1 DESCRIPTION
 
-Combines ReadKey and Term::ANSIColor into an object oriented curses-like ansi screen buffer.
+Allows a curses-like ansi screen buffer that works on win32, and doesn't crash when used with 
+sockets like the perl ncurses does.
 
 Inherits from Games::Roguelike::Console.  See Games::Roguelike::Console for list of methods.
+
+Uses Term::ANSIColor for colors.  
 
 =head1 SEE ALSO
 
@@ -71,48 +74,53 @@ sub init {
 	$self->{cy} = 0;
 	$self->{cattr} = '';
 	$self->{cbuf} = '';
-
-	if (!$opt{noinit}) {	
-
-	my $out = $self->{out};
-
-	$self->{usereadkey} = 1 if !defined($self->{usereadkey}=$opt{usereadkey});
-
-	if ($self->{usereadkey}) {
-	# this call will *close the connection* if it fails (which is silly to say the least)
-	eval {
-		($self->{winx}, $self->{winy}) = GetTerminalSize();
-	};
-	}
-
-	if (!$self->{winx}) {
-		($self->{winx}, $self->{winy}) = (80,40);
-		$self->{usereadkey} = 0;
-	}
-
-        $self->{invl}=$self->{winx}+1;
-        $self->{invr}=-1;
-        $self->{invt}=$self->{winy}+1;
-        $self->{invb}=-1;
-
-	if ($self->{usereadkey}) {
-		eval {ReadMode 'cbreak', $self->{in}};
-	}
-
-	print $out ("\033[2J"); 	#clear the screen 
-	print $out ("\033[0;0H"); 	#jump to 0,0
-	print $out ("\033[=0c"); 	#hide cursor
-
-	$self->{cursor} = 0;
-	if ($self->{out}->fileno() == 1) {
-		$STD = $self;
-		$SIG{INT} = \&sig_int_handler;
-		$SIG{__DIE__} = \&sig_die_handler;
-		$self->{speed} = `stty speed` unless $self->{speed};
-	}
-
-	}
 	$self->{reset} = color('reset');
+
+	$self->SUPER::init(%opt);	
+
+	# initialize ansi terminal
+	if (!$opt{noinit}) {
+
+		my $out = $self->{out};
+
+		$self->{usereadkey} = (($self->{out}->fileno() == 1));
+
+		# i think get away from readkey
+		# and just send the ansi sequence 
+		# for determining terminal size
+
+		if ($self->{usereadkey}) {
+			# this will (wrongly) close the output handle if it fails
+			eval {
+				($self->{winx}, $self->{winy}) = GetTerminalSize($self->{out});
+				ReadMode 'cbreak', $self->{in};
+			};
+		}
+
+		if (!$self->{winx}) {
+			# todo: negotiate using telnet stuff
+			($self->{winx}, $self->{winy}) = (80,40);
+		}
+		
+		$self->{invl}=$self->{winx}+1;
+		$self->{invr}=-1;
+		$self->{invt}=$self->{winy}+1;
+		$self->{invb}=-1;
+
+
+		print $out ("\033[2J"); 	#clear the screen 
+		print $out ("\033[0;0H"); 	#jump to 0,0
+		print $out ("\033[=0c"); 	#hide cursor
+
+		$self->{cursor} = 0;
+		if ($self->{out}->fileno() == 1) {
+			# there's probably a tty
+			$STD = $self;
+			$SIG{INT} = \&sig_int_handler;
+			$SIG{__DIE__} = \&sig_die_handler;
+			$self->{speed} = `stty speed` unless $self->{speed};
+		}
+	}
 }
 
 sub clear {
@@ -157,7 +165,7 @@ sub sig_die_handler {
 }
 
 sub END {
-	# this is only done because DESTROY is never called for some reason
+	# this is only done because DESTROY is never called for some reason on Win32
 	if ($STD) {
 		reset_fh(*STDOUT{IO});
 		$STD = undef;
@@ -168,7 +176,8 @@ sub DESTROY {
 	my $self = shift;
 	if ($self->{out} && fileno($self->{out})) {
         reset_fh($self->{out});
-        if ($self->{out}->fileno() == 1) {
+        if ($self->{out}->fileno() 
+		&& $self->{out}->fileno() == 1) {
 		$STD = undef;
                 $SIG{INT} = undef;
                 $SIG{__DIE__} = undef;
@@ -178,11 +187,11 @@ sub DESTROY {
 
 sub tagstr {
 	my $self = shift;
-	my ($x, $y, $str);
+	my ($y, $x, $str);
 	if (@_ == 1) {
-		($x, $y, $str) = ($self->{cx}, $self->{cy}, @_);
+		($y, $x, $str) = ($self->{cy}, $self->{cx}, @_);
 	} else {
-		($x, $y, $str) = @_;
+		($y, $x, $str) = @_;
 	}
 	my $attr;
 	my $r = $x;
@@ -195,9 +204,25 @@ sub tagstr {
         		$attr =~ s/(bold )?gray/bold black/i;
         		$attr =~ s/,/ /;
         		$attr =~ s/\bon /on_/;
-			$c = substr($str,$i,1);
+			if ($attr eq 'gt') {
+				$c = '>';
+				--$i;
+			} elsif ($attr eq 'lt') {
+				$c = '<';
+				--$i;
+			} else {
+				$c = substr($str,$i,1);
+			}
 		}
-                $self->{buf}->[$y][$r]->[0] = $attr ? color($attr) : '';
+		if ($c eq "\r") {
+			next;
+		}
+		if ($c eq "\n") {
+			$r = 0;
+			$y++;
+			next;
+		}
+                $self->{buf}->[$y][$r]->[0] = $self->parsecolor($attr);
                 $self->{buf}->[$y][$r]->[1] = $c;
 		++$r;
 	
@@ -207,12 +232,18 @@ sub tagstr {
         $self->{cx}=$x+$r;
 }
 
+sub parsecolor {
+	my $self = shift;
+	my $color = shift;
+        $color =~ s/(bold )?gray/bold black/i;
+        $color =~ s/,/ /;
+	$color =~ s/\bon\s+/on_/;
+	return $color ? color($color) : '';
+}
+
 sub attron {
 	my $self = shift;
-	my ($attr) = @_;
-        $attr =~ s/(bold )?gray/bold black/i;
-        $attr =~ s/,/ /;
-	$self->{cattr} = color($attr);
+	$self->{cattr} = $self->parsecolor(@_);
 }
 
 sub attroff {
@@ -227,16 +258,28 @@ sub addstr {
 
 	if (@_== 0) {
 		for (my $i = 0; $i < length($str); ++$i) {
+			my $c = substr($str,$i,1);
+			if ($c eq "\n") {
+				$self->{cx} = 0;
+				$self->{cy}++;
+				next;
+			}
 			$self->{buf}->[$self->{cy}][$self->{cx}+$i]->[0] = $self->{cattr};
-			$self->{buf}->[$self->{cy}][$self->{cx}+$i]->[1] = substr($str,$i,1);
+			$self->{buf}->[$self->{cy}][$self->{cx}+$i]->[1] = $c;
 		}
 		$self->invalidate($self->{cx}, $self->{cy}, $self->{cx} + length($str), $self->{cy});
 		$self->{cx} += length($str);
 	} elsif (@_==2) {
 		my ($y, $x) = @_;
 		for (my $i = 0; $i < length($str); ++$i) {
+			my $c = substr($str,$i,1);
+			if ($c eq "\n") {
+				$c = 0;
+				$y++;
+				next;
+			}
 			$self->{buf}->[$y][$x+$i]->[0] = $self->{cattr};
-			$self->{buf}->[$y][$x+$i]->[1] = substr($str,$i,1);
+			$self->{buf}->[$y][$x+$i]->[1] = $c;
 		}
 		$self->invalidate($x, $y, $x+length($str), $y);
 		$self->{cy}=$y;
@@ -334,6 +377,7 @@ sub cursor {
 	if ($set && !$self->{cursor}) {
 		print $out ("\033[=1c");        #show cursor
 		$self->{cursor} = 1;
+		$self->move($self->{cy}, $self->{cx});
 	} elsif (!$set && $self->{cursor}) {
 		print $out ("\033[=0c");        #hide cursor
 		$self->{cursor} = 0;
@@ -345,6 +389,18 @@ sub addch {
 	$self->addstr(@_);
 }
 
+sub getch_raw {
+	my $self = shift;
+	my $time = shift;
+	if ($self->{usereadkey}) {
+		return ReadKey($time ? $time : 0, $self->{in});
+	} else {
+		my $c;
+		$c = undef if !sysread($self->{in}, $c, 1);
+		return $c;
+	}
+}
+
 sub getch {
 	my $self = shift;
 
@@ -353,13 +409,13 @@ sub getch {
 		$c = substr($self->{cbuf},0,1);
 		$self->{cbuf} = substr($self->{cbuf},1);
 	} else {
-		$c = ReadKey(0, $self->{in});
+		$c = $self->getch_raw();
 	}
 
 	if ($c eq $KEY_ESCAPE) {
-		$c = ReadKey(1, $self->{in});
+		$c = $self->getch_raw(1);
 		if ($c eq '[') {
-			$c = ReadKey(1, $self->{in});
+			$c = $self->getch_raw(1);
 			$c = '[' . $c;
 		} elsif ($c eq $KEY_NOOP) {
 			return getch();
@@ -392,7 +448,11 @@ sub nbgetch_raw {
                 $c = substr($self->{cbuf},0,1);
                 $self->{cbuf} = substr($self->{cbuf},1);
         } else {
-                $c = ReadKey(-1, $self->{in});
+		if ($self->{usereadkey}) {
+			$c = ReadKey(-1, $self->{in});
+		} else {
+			$c = undef if !sysread($self->{in}, $c, 1);
+		}
         }
 	return $c;
 }

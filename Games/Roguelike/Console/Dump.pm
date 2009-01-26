@@ -77,32 +77,6 @@ sub clear {
 sub redraw {
 }
 
-sub tagstr {
-	my $self = shift;
-	my ($x, $y, $str);
-	if (@_ == 1) {
-		($x, $y, $str) = ($self->{cx}, $self->{cy}, @_);
-	} else {
-		($x, $y, $str) = @_;
-	}
-	my $attr;
-	my $r = $x;
-        my $c;
-	for (my $i = 0; $i < length($str); ++$i) {
-		$c = substr($str,$i,1);
-		if ($c eq '<') {
-			substr($str,$i) =~ s/<([^>]*)>//;
-			$c = substr($str,$i,1);
-		}
-                $self->{buf}->[$y][$r] = $c;
-		++$r;
-	
-        }
-        $self->invalidate($x, $y, $x+$r, $y);
-        $self->{cy}=$y;
-        $self->{cx}=$x+$r;
-}
-
 sub attron {
 }
 
@@ -126,6 +100,14 @@ sub addstr {
 		$self->{cx}=$x+length($str);
 	}
 }
+
+sub tagstr {
+	my $self = shift;
+	my $str = pop @_;
+	$str =~ s/<[^>]+>//g;
+	$self->addstr(@_, $str);
+}
+
 
 sub refresh {
 	my $self = shift;

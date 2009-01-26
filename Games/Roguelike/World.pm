@@ -9,7 +9,7 @@ package Games::Roguelike::World;
 
 =head1 NAME
 
-Games::Roguelike::World - roguelike world
+Games::Roguelike::World - Roguelike World
 
 =head1 SYNOPSIS
 
@@ -52,10 +52,7 @@ use Data::Dumper;
 use Carp qw(croak confess carp);
 
 our $AUTOLOAD;
-
-our $REV = '$Revision: 187 $';
-$REV =~ m/: (\d+)/;
-our $VERSION = '0.4.' . $1;
+our $VERSION = '0.4.' . [qw$Revision: 225 $]->[1];
 
 =item new(OPT1=>VAL1, OPT2=>VAL2...)
 	
@@ -110,6 +107,7 @@ sub init {
 	$self->{debugmap} = 0;
 	$self->{vp} = undef;
 	$self->{dn} = 0;
+	$self->{memcolor} = 'gray';
 
 	# allow all of the above to be overridden by params	
 	while( my ($k, $v) = splice(@_, 0, 2)) {
@@ -232,6 +230,47 @@ sub getch {
 	$self->{con}->getch();	
 }
 
+=item getstr ([echo=>1[,empty=>0]])
+
+Calls getch repeatedly, optionally echoing characters to the active console.  If "empty" is not 
+set to true, it will not return empty strings.
+
+=cut
+
+sub getstr {
+        my $self = shift;
+	my %opts = @_;
+	$opts{max} = 40 if !defined $opts{max};
+	$opts{echo} = 1 if !defined $opts{echo};
+	$opts{empty} = 0 if !defined $opts{empty};
+
+	$self->{con}->cursor(1);
+	my ($c, $str);
+	do {
+        	$c = $self->{con}->getch();
+		if ($opts{echo} && length($str) < $opts{max}) {
+			if ($c eq 'BACKSPACE') {
+				$self->{con}->addch(chr(8));
+				$self->{con}->addch(' ');
+				$self->{con}->addch(chr(8));
+			} elsif (length($c) == 1) {
+        			$self->{con}->addch($c); 
+			}
+		}
+		$self->{con}->refresh();
+                if ($c eq 'BACKSPACE') {
+                        $str = substr($str, 0, -1);
+                } elsif (length($c)==1) {
+			$str .= $c;
+                };
+		$c = '' if !length($str);
+	} while (!($c =~ /[\n\r]/));
+
+	$self->{con}->cursor(0);
+	chomp $str;
+	return $str;
+}
+
 
 =item refresh ()
 
@@ -276,7 +315,11 @@ Useful for displaying an in-game menu, inventory, ability or skill list, etc.
 
 sub dispclear {
 	my $self = shift;
-	for (my $i = $self->{dispy}; $i < ($self->{disph}+$self->{dispy}); ++$i) {
+
+	my ($y) = @_;
+	$y = $self->{dispy} if ! defined $y; 
+
+	for (my $i = $y; $i < ($self->{disph}+$self->{dispy}); ++$i) {
 		$self->{con}->addstr($i,$self->{dispx}," " x ($self->{dispw}));
 	}
 	$self->{displine} = $self->{dispy};
@@ -284,11 +327,9 @@ sub dispclear {
 
 =item dispstr (str[, line])
 
-Increments the "displine" and draws a tagged string at that line position.  
+Draws a tagged string at the "displine" position and increments the "displine".
 
-Automatically scrolls if the next line is past the screen.  
-
-Returns nonzero on success, 2 for "on last line", and 3 for "scrolled".
+Return value: 0 (offscreen, did not draw), 1  (ok), 2 (ok, but next call will be offscreen).
 
 =cut
 
@@ -296,23 +337,31 @@ sub dispstr {
         my $self = shift;
 	my ($str, $line) = @_;
 	
-	my $selfet = 1;
+	my $ret = 1;
 
-	if (!$line) {
-		if ($self->{displine} >= ($self->{dispy} + $self->{disph} - 1)) {
-			$self->{con}->scroll(1, $self->{dispx}, $self->{dispy}, $self->{dispw}, $self->{disph});
-			$selfet = 3;
-		}
-
-        	$self->{con}->tagstr($self->{dispx}, $self->{displine}++, $str);
-
-		if ($self->{displine} >= ($self->{dispy} + $self->{disph} - 1)) {
-			$selfet = 2;
-		}
-	} else {
-        	$self->{con}->tagstr($self->{dispx}, $line, $str);
+	if ($line) {
+		$self->{displine} = $line;
 	}
-	return $selfet;
+
+	if ($self->{displine} >= ($self->{dispy} + $self->{disph})) {
+		return 0;
+	}
+
+	$self->{con}->tagstr($self->{displine}, $self->{dispx}, rpad($str, $self->{dispw}));
+
+	my $lc = 0;
+	map {++$lc} ($str =~ /\n/g);
+
+	$str =~ s/.*\n//s;
+	$self->{con}->move($self->{displine}+$lc, $self->{dispx}+length($str));
+
+	$self->{displine} += 1 + $lc;
+
+	if ($self->{displine} >= ($self->{dispy} + $self->{disph})) {
+		$ret = 2;
+	}
+
+	return $ret;
 }
 
 =item drawmap ()
@@ -397,7 +446,7 @@ sub showmsg {
 			$m =~ s/<[^<>]*>//g;
 		}
 		$m = "<$a>$m" if $a;
-		$self->{con}->tagstr($self->{msgx}, $self->{msgy}+$i, $m.(' 'x($self->{msgw}-length($m))));
+		$self->{con}->tagstr($self->{msgy}+$i, $self->{msgx}, $m.(' 'x($self->{msgw}-length($m))));
 	}
 
 	$self->{con}->move($self->{msgy},$self->{msgx}+length($msglog->[0]->[0]));
@@ -441,6 +490,7 @@ sub save {
         my $fn = shift;
 	$fn = "rll.world" if (!$fn);
   	use Storable;
+	local $self->{con} = undef;
 	store $self,$fn;
 }
 

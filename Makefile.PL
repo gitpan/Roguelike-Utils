@@ -8,16 +8,17 @@ use ExtUtils::MakeMaker;
 
 my $ver = 0;
 
+# if VERSION_FROM took an array ref, and VERSION_REGEX optionally allowed for non-eval parsing....it would be nice.
+
 for (qw(Games/Roguelike/Utils.pm Games/Roguelike/World.pm Games/Roguelike/World/Daemon.pm Games/Roguelike/Area.pm)) {
 	my $ver2 = getver($_);
-	$ver = $ver2 if ($ver2 gt $ver);
+	$ver = $ver2 if ($ver2 gt $ver);  # stringwise compare...works for me ... for now
 }
 
 die "Can't get version from files" unless $ver;
 
 my @exe_files = qw(scripts/example scripts/netgame scripts/tictactoe);
 
-push @exe_files, 'scripts/example.cmd' if $^O =~ /win32/i;
 
 WriteMakefile(
     NAME         => 'Roguelike-Utils',
@@ -33,16 +34,16 @@ WriteMakefile(
 );
 
 
+# since it's my module, i'd prefer not to use Safe & eval 
 sub getver {
 	my ($f) = @_;
 	open(IN, $f);
 	my ($ver, $rev);
 	while (my $in=<IN>) {
-		$rev = $1 if $in =~ /Revision: (\d+)/s;
-		$ver = $1 if $in =~ /VERSION[\s='"]*([\d.]+)\./s;
-		last if $ver && $rev;
+		if (my @v = ($in =~ /VERSION[\s='"]*([\d.]+)\.[\s.'"\[]*qw\$Revision: (\d+)/s)) {
+			return join '.', @v;
+		}
 	}
 	close IN;
-	print "$ver.$rev\n";
-	return "$ver.$rev";
+	return undef;
 }
