@@ -11,7 +11,7 @@ use IO::Socket;
 use IO::Select;
 use IO::File qw();		# this prevents warnings on win32
 
-our $VERSION = '0.4.' . [qw$Revision: 200 $]->[1];
+our $VERSION = '0.4.' . [qw$Revision: 235 $]->[1];
 
 use Time::HiRes qw(time);
 
@@ -108,7 +108,7 @@ sub new {
 	local $! = 0;
 	$r->{main_sock} = new IO::Socket::INET(
 			LocalAddr=>($r->{addr} ? $r->{addr} : '0.0.0.0'), 
-			LocalPort=>($r->{port} ? $r->{port} : 9191), 
+			LocalPort=>(defined($r->{port}) ? $r->{port} : 9191), 
 			Listen => 1, 
 			ReuseAddr => 1);
 

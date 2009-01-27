@@ -4,11 +4,18 @@
 
 use strict;
 
-use Test::More tests => 3;
+use Test::More;
 
-use IO::Socket::INET;
+eval('require IO::Socket::INET');
 
-BEGIN { use_ok( 'Games::Roguelike::World::Daemon' ); }
+if( $@ ) {
+      plan skip_all => 'IO::Socket::INET not available';
+}
+else {
+      plan tests => 3;
+}
+
+use_ok( 'Games::Roguelike::World::Daemon' ); 
 
 my $testaddr = '127.0.0.9';
 my $stdout = new IO::File;
