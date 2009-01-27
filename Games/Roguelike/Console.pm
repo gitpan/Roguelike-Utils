@@ -7,9 +7,7 @@ our @ISA=qw(Exporter);
 use Carp qw(croak);
 use warnings::register;
 
-our $REV = '$Revision: 161 $';
-$REV =~ m/: (\d+)/;
-our $VERSION = '0.4.' . $1;
+our $VERSION = '0.4.' . [qw$Revision: 230 $]->[1];
 
 =head1 NAME
 

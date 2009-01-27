@@ -3,6 +3,8 @@ package Games::Roguelike::Utils::Pov_C;
 use Exporter qw(import);
 our @EXPORT = qw(checkpov_c distance findclose_c);
 
+our $VERSION = '0.4.' . [qw$Revision: 233 $]->[1];
+
 use Inline C => <<'END_C';
 
 #include <math.h>

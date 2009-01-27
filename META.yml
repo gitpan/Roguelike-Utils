@@ -1,12 +1,21 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         Roguelike-Utils
-version:      0.4.225
-version_from: 
-installdirs:  site
+--- #YAML:1.0
+name:               Roguelike-Utils
+version:            0.4.230
+abstract:           Roguelike Utilities for Perl
+author:
+    - Erik Aronesty (erik@q32.com)
+license:            unknown
+distribution_type:  module
+configure_requires:
+    ExtUtils::MakeMaker:  0
 requires:
-    Term::ReadKey:                 0
-    Test::Simple:                  0.44
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.30
+    Term::ReadKey:  0
+    Test::Simple:   0.44
+no_index:
+    directory:
+        - t
+        - inc
+generated_by:       ExtUtils::MakeMaker version 6.48
+meta-spec:
+    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
+    version:  1.4

@@ -30,6 +30,8 @@ use Carp qw(cluck croak);
 use Games::Roguelike::Utils qw(:DEFAULT);
 use base 'Games::Roguelike::Console';
 
+our $VERSION = '0.4.' . [qw$Revision: 233 $]->[1];
+
 sub new {
         my $pkg = shift;
         croak "usage: Games::Roguelike::Console::Dump->new()" unless $pkg;

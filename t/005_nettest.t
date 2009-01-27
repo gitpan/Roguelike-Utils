@@ -11,12 +11,11 @@ use IO::Socket::INET;
 BEGIN { use_ok( 'Games::Roguelike::World::Daemon' ); }
 
 my $testaddr = '127.0.0.9';
-my $testport = 9191;
 my $stdout = new IO::File;
 
 open($stdout, ($^O =~ /win32/) ? ">NUL" : ">/dev/null");
 
-my $world = myWorld->new(addr=>$testaddr, port=>$testport, stdout=>$stdout, noinit=>1);
+my $world = myWorld->new(addr=>$testaddr, port=>0, stdout=>$stdout, noinit=>1);
 
 isa_ok ($world, 'Games::Roguelike::World::Daemon');
 
@@ -28,7 +27,7 @@ $world->area->load(map=>'
 #######
 ');
 
-my $sock = IO::Socket::INET->new(PeerAddr => $testaddr, PeerPort => $testport, Proto => 'tcp');
+my $sock = IO::Socket::INET->new(PeerAddr => $testaddr, PeerPort => $world->{main_sock}->sockport, Proto => 'tcp');
 $sock->autoflush(1);
 $sock->write(chr(255));
 

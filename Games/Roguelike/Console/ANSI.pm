@@ -48,6 +48,8 @@ use Carp qw(confess croak);
 
 use base 'Games::Roguelike::Console';
 
+our $VERSION = '0.4.' . [qw$Revision: 233 $]->[1];
+
 our $KEY_ESCAPE = chr(27);
 our $KEY_NOOP = chr(241);
 our ($KEY_LEFT, $KEY_UP, $KEY_RIGHT, $KEY_DOWN) = ('[D','[A','[C','[B');

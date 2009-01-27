@@ -5,6 +5,8 @@ use base qw(Curses::Window Games::Roguelike::Console);
 use Carp qw(croak cluck);
 use warnings::register;
 
+our $VERSION = '0.4.' . [qw$Revision: 233 $]->[1];
+
 my $ATTR = 0;
 
 sub new {
