@@ -18,6 +18,7 @@ for (qw(Games/Roguelike/Utils.pm
 	Games/Roguelike/Area.pm 
 	Games/Roguelike/Console.pm)) {
 	my $ver2 = getver($_);
+	die "Can't get version from $_" unless $ver2;
 	$ver = $ver2 if ($ver2 gt $ver);  # stringwise compare...works for me ... for now
 }
 

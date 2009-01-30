@@ -11,7 +11,7 @@ use IO::Socket;
 use IO::Select;
 use IO::File qw();		# this prevents warnings on win32
 
-our $VERSION = '0.4.' . [qw$Revision: 237 $]->[1];
+our $VERSION = '0.4.' . [qw$Revision: 242 $]->[1];
 
 use Time::HiRes qw(time);
 
@@ -163,7 +163,7 @@ Look for waiting input and calls:
 	drawallmaps() - to render all the maps	
 
 When those functions are called the class {vp} and {state} variables are 
-set to the connection's "viewpoint" and "state".
+set to the connection's "viewpoint" (character) and "state".
 
 Also, the special scalar state 'QUIT' gracefully removes a connection. 
 
