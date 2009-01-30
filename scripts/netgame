@@ -11,6 +11,7 @@ use Getopt::Long;
 
 my $r = mydaemon->new(
        	w=>50,
+       	port=>9191,
         h=>20,
        	dispw=>50,
         disph=>20,

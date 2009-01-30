@@ -10,9 +10,13 @@ use 5.006;
 
 my $ver = 0;
 
-# if VERSION_FROM took an array ref, and VERSION_REGEX optionally allowed for non-eval parsing....it would be nice.
+# if VERSION_FROM took an array ref, it would be nice
 
-for (qw(Games/Roguelike/Utils.pm Games/Roguelike/World.pm Games/Roguelike/World/Daemon.pm Games/Roguelike/Area.pm Games/Roguelike/Console.pm)) {
+for (qw(Games/Roguelike/Utils.pm 
+	Games/Roguelike/World.pm 
+	Games/Roguelike/World/Daemon.pm 
+	Games/Roguelike/Area.pm 
+	Games/Roguelike/Console.pm)) {
 	my $ver2 = getver($_);
 	$ver = $ver2 if ($ver2 gt $ver);  # stringwise compare...works for me ... for now
 }

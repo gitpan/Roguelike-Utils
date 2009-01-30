@@ -11,7 +11,7 @@ use IO::Socket;
 use IO::Select;
 use IO::File qw();		# this prevents warnings on win32
 
-our $VERSION = '0.4.' . [qw$Revision: 236 $]->[1];
+our $VERSION = '0.4.' . [qw$Revision: 237 $]->[1];
 
 use Time::HiRes qw(time);
 
@@ -90,10 +90,9 @@ my @SOCKS;
 
 =item new ()
 
-Just like the ::World new, but with optional arguments: port (defaults to 9191), and 
-addr (defaults to 0.0.0.0).
+Similar to ::World new, but with arguments: host, port, and addr
 
-This begins listening for connections, and set up some signal handlers for 
+This begins listening for connections, and sets up some signal handlers for 
 graceful death.
 
 =cut
@@ -106,9 +105,14 @@ sub new {
 	$r->{tick} = 0.5 if !$r->{tick};
 
 	local $! = 0;
+	my %addrs;
+
+        $addrs{LocalAddr} = $r->{addr} if $r->{addr};
+        $addrs{LocalHost} = $r->{host} if $r->{host};
+        $addrs{LocalPort} = $r->{port} if $r->{port};
+
 	$r->{main_sock} = new IO::Socket::INET(
-			LocalAddr=>($r->{addr} ? $r->{addr} : '0.0.0.0'), 
-			LocalPort=>(defined($r->{port}) ? ($r->{port} ? $r->{port} : undef) : 9191), 
+			%addrs,
 			Listen => 1, 
 			ReuseAddr => 1);
 
