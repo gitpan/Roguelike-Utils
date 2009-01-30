@@ -4,11 +4,12 @@ package Games::Roguelike::Utils;
 
 use strict;
 
-use Exporter qw(import);
+# this breaks under perl < 5.8
+# use Exporter qw(import);
 
 # Direction helpers
 
-our $VERSION = '0.4.' . [qw$Revision: 207 $]->[1];
+our $VERSION = '0.4.' . [qw$Revision: 236 $]->[1];
 
 our $DIRN = 8;                                                                   # number of ways to move (don't count ".")
 our @DIRS = ('n','s','e','w','ne','se','nw','sw', '.');                          # names of dirs (zero indexed array)
@@ -18,6 +19,8 @@ our %DI = ('n'=>0,'s'=>1,'e'=>2,'w'=>3,'ne'=>4,'se'=>5,'nw'=>6,'sw'=>7,'.'=>8); 
 our @CWDIRS = ('n','ne','e','se','s','sw','w','nw');				 #clockwise directions
 
 BEGIN {
+	require Exporter;
+	*{import} = \&Exporter::import;
 	our @EXPORT_OK = qw(min max ardel rarr distance randsort intify randi $DIRN @DD %DD %DI @DIRS @CWDIRS round rpad);
 	our %EXPORT_TAGS = (all=>\@EXPORT_OK);
 }
