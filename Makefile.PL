@@ -36,6 +36,7 @@ WriteMakefile(
     PREREQ_PM    => {
                      'Test::Simple' => 0.44,
 		     'Term::ReadKey' => 0,
+		     'Time::HiRes' => 0,
                     },
     EXE_FILES    => \@exe_files,
 );

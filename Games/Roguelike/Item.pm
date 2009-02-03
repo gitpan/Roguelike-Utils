@@ -15,10 +15,10 @@ Games::Roguelike::Item - Roguelike item object
 
 =head1 SYNOPSIS
 
- package myitem;
+ package myItem;
  use base 'Games::Roguelike::Item';
 
- $i = myitem->new($area, sym=>'!', x=>5,y=>6);	    # creates an item at location 5, 6 
+ $i = myItem->new($area, sym=>'!', x=>5,y=>6);	    # creates an item at location 5, 6 
 						    # with symbol '!', inside area $area
 
 =head1 DESCRIPTION

@@ -11,7 +11,7 @@ use IO::Socket;
 use IO::Select;
 use IO::File qw();		# this prevents warnings on win32
 
-our $VERSION = '0.4.' . [qw$Revision: 242 $]->[1];
+our $VERSION = '0.4.' . [qw$Revision: 246 $]->[1];
 
 use Time::HiRes qw(time);
 
@@ -32,10 +32,10 @@ Games::Roguelike::World::Daemon - roguelike game telnet daemon
 
  use strict;
 
- package myworld;                                        # always override
+ package myWorld;                                        # always override
  use base 'Games::Roguelike::World::Daemon';
 
- my $r = myworld->new(w=>80,h=>50,dispw=>40,disph=>18);  # create a networked world
+ my $r = myWorld->new(w=>80,h=>50,dispw=>40,disph=>18);  # create a networked world
  $r->area(new Games::Roguelike::Area(name=>'1'));        # create a new area in this world called "1"
  $r->area->genmaze2();                                   # make a cavelike maze
 
@@ -234,7 +234,9 @@ sub proc {
 		}
 
 		if ($self->{state} eq 'QUIT') {
-			*$sock{HASH}->{char}->{area}->delmob(*$sock{HASH}->{char});
+			eval {
+				*$sock{HASH}->{char}->{area}->delmob(*$sock{HASH}->{char}) if *$sock{HASH}->{char};
+			};
 			$self->{read_set}->remove($sock);
 			$sock->close();
 		} 
@@ -298,17 +300,38 @@ Returns undef if the string is not ready.
 
 =cut
 
+sub hexify {
+	my ($s) = @_;
+	my $ret = '';
+	for (split(//,$s)) {
+		$ret .= sprintf("x%x", ord($_));
+		$ret .= "($_)" if $_ =~ /\w/;
+	}
+	return $ret;
+}
+
 sub getstr {
         my $self = shift;
 	my $sock = $self->{con}->{in};
 	my $first = 1;
+
 	while (1) {
-        	my $b;
-		my $nb = sysread($sock,$b,1);
-        	if (!defined($nb) || $nb <= 0) {
+        	my $b = $self->getch();
+        	if (!defined($b)) {
 			++(*$sock{HASH}->{errc}) if $first;
                 	return undef;
-        	} else {
+		} elsif($b eq 'BACKSPACE') {
+			$self->log("getstr read $b");
+			if (length(*$sock{HASH}->{sbuf}) > 0) {
+	                        syswrite($sock, chr(8), 1);
+	                        syswrite($sock, ' ', 1);
+	                        syswrite($sock, chr(8), 1);
+				substr(*$sock{HASH}->{sbuf},-1,1) = '';
+			}
+        	} elsif(length($b) > 1 || $b eq '') {
+			next;
+		} else {
+			$self->log("getstr read " . ord($b));
 			syswrite($sock,$b,1);	# echo on getstr
 			$first = 0 if $first;
                 	*$sock{HASH}->{errc} = 0;
@@ -332,7 +355,12 @@ Returns undef if no input is ready.
 
 sub getch {
 	my $self = shift;
-	return $self->{con}->nbgetch();
+	my $c = $self->{con}->nbgetch();
+	if (! defined $c) {
+		my $sock = $self->{con}->{in};
+		++(*$sock{HASH}->{errc}) 
+	}
+	return $c;
 }
 
 =item charmsg ($char)

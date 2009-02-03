@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Roguelike-Utils
-version:            0.4.242
+version:            0.4.250
 abstract:           Roguelike Utilities for Perl
 author:
     - Erik Aronesty (erik@q32.com)
@@ -11,6 +11,7 @@ configure_requires:
 requires:
     Term::ReadKey:  0
     Test::Simple:   0.44
+    Time::HiRes:    0
 no_index:
     directory:
         - t

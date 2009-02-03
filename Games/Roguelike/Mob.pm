@@ -14,11 +14,11 @@ Games::Roguelike::Mob - Roguelike mobile object
 
 =head1 SYNOPSIS
 
- package mymob;
+ package myMob;
  use base 'Games::Roguelike::Mob';
 
  $area = Games::Roguelike::Area->new();
- $m = mymob->new($area, sym=>'D', x=>5,y=>6);       # creates a mob at location 5, 6
+ $m = myMob->new($area, sym=>'D', x=>5,y=>6);       # creates a mob at location 5, 6
                                                     # with symbol 'D', inside area $area
 
  $m->autoex()					    # moves the mob towards the nearest unexplored area
@@ -34,20 +34,23 @@ Mobile object used by drawing routines in Roguelke::Area
 
 =item new($area, %options)
 
-Area is an ::Area object, options are:
+Area is an ::Area object, common options are:
 
  sym=>'@', 		# symbol to use when rendering
  items=>[], 		# array ref of contained items
  hasmem=>1,		# whether the mob uses the "memory" feature
  pov=>-1, 	        # distance the mob can "see" (-1 = infinite, 0 = blind)
  singleminded=>0,	# whether the mob will "wander" when the movetoward function is called
- 
+
+All "unknown" options are saved in the object's hash, with the assumption that they 
+will be used by the game, for example "->{MaxHp}", etc.
+
 =cut
 
 sub new {
         my $pkg = shift;
         my $area = shift;
-	croak("can't create mob without area") unless $area->isa('Games::Roguelike::Area');
+	croak("can't create mob without area") unless $area && $area->isa('Games::Roguelike::Area');
 
         my $self = {};
 
@@ -87,6 +90,9 @@ sub area {
 		$self->{area}->delmob($self);
         	$self->{area} = $_[0];
         	$_[0]->addmob($self);
+		if ($self->{area}->{world}) {
+			$self->{area}->{world}->area($self->{area});
+		}
         }
         return $self->{area};
 }
@@ -414,7 +420,11 @@ sub autoex {
 Uses checkmove to see whether the direction is ok.  If it returns > 0, then moves the mob, 
 changing its x,y position, and saving the move in "lastmove".
 
-Atermove is then called if the return value of checkmove was nonzero.
+Aftermove is then called if the return value of checkmove was nonzero.
+
+=item lastmove
+
+Returns the direction parameter passed to "move" that resulted in a successful move.
 
 =cut
 
@@ -446,6 +456,10 @@ sub getmovexy {
         my $nx = $self->{x} + $DD{$d}->[0];
         my $ny = $self->{y} + $DD{$d}->[1];
 	return ($nx, $ny); 
+}
+
+sub lastmove {
+	return $_[0]->{lastmove};
 }
 
 =item aftermove (direction)

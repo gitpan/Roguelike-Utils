@@ -13,10 +13,10 @@ Games::Roguelike::World - Roguelike World
 
 =head1 SYNOPSIS
 
- package myworld;
+ package myWorld;
  use base 'Games::Roguelike::World';
 
- $r = myworld->new(w=>80,h=>50,dispw=>40,disph=>18);     # creates a world with specified width/height & map display width/height
+ $r = myWorld->new(w=>80,h=>50,dispw=>40,disph=>18);     # creates a world with specified width/height & map display width/height
  $r->area(new Games::Roguelike::Area(name=>'1'));			# create a new area in this world called "1"
  $r->area->genmaze2();                                   # make a cavelike maze
  $char = Games::Roguelike::Mob->new($r->area, sym=>'@', pov=>8);      # add a mobile object with symbol '@'
@@ -52,7 +52,7 @@ use Data::Dumper;
 use Carp qw(croak confess carp);
 
 our $AUTOLOAD;
-our $VERSION = '0.4.' . [qw$Revision: 225 $]->[1];
+our $VERSION = '0.4.' . [qw$Revision: 244 $]->[1];
 
 =item new(OPT1=>VAL1, OPT2=>VAL2...)
 	

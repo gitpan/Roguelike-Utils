@@ -14,10 +14,10 @@ Games::Roguelike::Area - Roguelike area map
 
 =head1 SYNOPSIS
 
- package myarea;
+ package myArea;
  use base 'Games::Roguelike::Area';
 
- $a = myarea->new(w=>80,h=>50);     				# creates an area with specified width/height
+ $a = myArea->new(w=>80,h=>50);     				# creates an area with specified width/height
  $a->genmaze2();                                         	# make a cavelike maze
  $char = Games::Roguelike::Mob->new($a, sym=>'@');              # add a mobile object with symbol '@'
 
@@ -45,7 +45,7 @@ use Carp qw(croak confess carp);
 our $OKINLINEPOV;
 our $AUTOLOAD;
 
-our $VERSION = '0.4.' . [qw$Revision: 224 $]->[1];
+our $VERSION = '0.4.' . [qw$Revision: 250 $]->[1];
 
 BEGIN {
         eval('use Games::Roguelike::Utils::Pov_C;');
@@ -172,19 +172,32 @@ sub AUTOLOAD {
 sub DESTROY {
 }
 
-=item setmapsym ($x,$y, $sym)
+=item getmapsym ($x,$y)
 
-=item setmapcolor ($x,$y, $sym)
+=item getmapcolor ($x,$y)
 
-basic map accessors.  
-same as: $area->map->[$x][$y]=$sym, 
-      or $area->{map}[$x][$y], 
-      or $area->{color}->[$x][$y] = $color
-      or $area->map($x,$y)
+=item setmap ($x,$y, $sym [,$color])
+
+Raw accessors may be subject to change in future versions, but are much faster.
+
+ $area->{map}[$x][$y] = $sym, 
+ $area->{color}->[$x][$y] = $color
+
+Function accessors will always work, but are slower:
+
+ $sym=$area->getmapsym($x,$y) 
+ $color=$area->getmapcolor($x,$y) 
+ $area->setmap($x,$y, $sym [,$color]);
 
 etcetera.
 
 =cut
+
+sub getmapsym {
+        my $self = shift;
+	my ($x, $y) = @_;
+        return $self->{map}->[$x][$y];
+}
 
 sub setmapsym {
         my $self = shift;
@@ -192,16 +205,42 @@ sub setmapsym {
         $self->{map}->[$x][$y] = $sym;
 }
 
-sub setmapcolor {
+sub setmap {
         my $self = shift;
-        my ($x, $y, $color) = @_;
-        $self->{color}->[$x][$y] = $color;
+        my ($x, $y, $sym, $color) = @_;
+	if (ref($sym)) {
+	        $self->{map}->[$x][$y] = $sym->{sym};
+        	$self->{color}->[$x][$y] = $sym->{color} if defined $sym->{color};
+	} else {
+	        $self->{map}->[$x][$y] = $sym;
+        	$self->{color}->[$x][$y] = $color if defined $color;
+	}
+}
+
+sub mapsym {
+        my $self = shift;
+        my ($x, $y, $s) = @_;
+	if ($s) {
+                return $self->{map}->[$x][$y] = $s;
+	} else {
+                return $self->{map}->[$x][$y];
+	}
+}
+
+sub mapcolor {
+        my $self = shift;
+        my ($x, $y, $c) = @_;
+        if ($c) {
+                return $self->{color}->[$x][$y] = $c;
+        } else {
+                return $self->{color}->[$x][$y];
+        }
 }
 
 sub map {
         my $self = shift;
 	if (@_) {
-        	my ($x, $y) = @_;
+        	my ($x, $y) = (shift, shift);
 		return $self->{map}->[$x][$y];
 	} else {
 		return $self->{map};
@@ -240,23 +279,32 @@ sub rpoint_empty {
 ############ part of genmaze1 ############
 
 sub genroom {
-	# make a room around x/y with optional minimum size
+	# make a room around x/y with options
+	# options are: minx, miny, maxx, maxy, nooverlap, withdoor
+	
         my $self = shift;
-        my ($x, $y, $flag) = @_;
+        my ($x, $y, %opts) = @_;
+	
+	if ($x =~ /^[a-z]/i) {
+		%opts = @_;
+		$x = $opts{x};
+		$y = $opts{x};
+		if (! defined $x) {
+			($x, $y) = $self->rpoint_empty();
+		}
+	}
+	
 	my $m = $self->{map};
 
 	# room width/height
 	my $rw = max(1,2+($self->{w}/2-2)*rand()*rand());
 	my $rh = max(1,2+($self->{h}/2-2)*rand()*rand());
 
-	if ($flag =~ s/MINX(Y?):(\d+)//i) {
-		$rw=$1 if $rw < $2;
-		$rh=$1 if $rh < $2 && $1;
-	}
-	if ($flag =~ s/MINY:(\d+)//i) {
-		$rh=$1 if $rh < $1;
-	}
-
+	$rw=$opts{minw} if $opts{minw} && $rw < $opts{minw};
+	$rh=$opts{minh} if $opts{minh} && $rh < $opts{minh};
+	$rw=$opts{maxw} if $opts{maxw} && $rw > $opts{maxw};
+	$rh=$opts{maxh} if $opts{maxh} && $rh > $opts{maxh};
+	
 	# top left corner of room (not including walls)
 	my $rx = min($x, max(1,int(rand() + $x - ($rw-1)/2)));
 	my $ry = min($y, max(1,int(rand() + $y - ($rh-1)/2)));
@@ -269,7 +317,7 @@ sub genroom {
 		return 0;
 	}
 
-	if ($flag =~ s/NOOVERL?A?P//i) {
+	if ($opts{nooverlap}) {
 		my $ov = 0;
 		for (my $i = -1; $i <= $rw; ++$i) {
 			if ($m->[$rx+$i][int($ry+($i * $rw/$rh))]) {
@@ -292,7 +340,7 @@ sub genroom {
 		next if ($rx+$i) < 0;
 		$m->[$rx+$i][$ry-1] 	= $self->{wsym} unless $m->[$rx+$i][$ry-1] || ($ry == 0);
 		$m->[$rx+$i][$ry+$rh] 	= $self->{wsym} unless $m->[$rx+$i][$ry+$rh];
-	}
+	}	
 	for (my $i = 0; $i < $rw; ++$i) {
         for (my $j = 0; $j < $rh; ++$j) {
                 $m->[$rx+$i][$ry+$j] 	= $self->{fsym} unless $m->[$rx+$i][$ry+$j];
@@ -303,6 +351,23 @@ sub genroom {
 		$m->[$rx-1][$ry+$i] 	= $self->{wsym} unless $m->[$rx-1][$ry+$i] || ($rx == 0);
 		$m->[$rx+$rw][$ry+$i] 	= $self->{wsym} unless $m->[$rx+$rw][$ry+$i];
 	}
+		if ($opts{door}) {
+			if (rand() > .5) {
+				if (rand() > .5) {
+					$m->[$rx+rand()*$rw][$ry-1] 	= $self->{dsym};
+				} else {
+					$m->[$rx+rand()*$rw][$ry+$rh] 	= $self->{dsym};
+				}
+				--$opts{door};
+			} else {
+				if (rand() > .5) {
+					$m->[$rx-1][$ry+rand()*$rh] 	= $self->{dsym};
+				} else {
+					$m->[$rx+$rw][$ry+rand()*$rh] 	= $self->{dsym};
+				}
+				--$opts{door};
+			}	
+		}
 
 	if (0) {
 		my $sig = chr(64 + int($rw));
@@ -905,7 +970,7 @@ sub genmaze1 {
 
 	# some extra rooms
 	while($rooms < ($self->{w}*$self->{h}/600)) {
-		++$rooms if $self->genroom(($fx, $fy) = $self->rpoint_empty(), 'NOOVERLAP');
+		++$rooms if $self->genroom(($fx, $fy) = $self->rpoint_empty(), nooverlap=>1);
 	}
 
 	# dig out paths
@@ -1034,6 +1099,38 @@ sub genmaze3 {
         }
 }
 
+sub foreachmap {
+	my $self = shift;
+	my $code = shift;
+	my %opts = @_;
+	
+	if ($opts{border}) {
+		for my $y ((0,$self->{h}-1)) {
+			for (my $x = 0; $x < $self->{w}; ++$x) {
+				&{$code}($x, $y, $self->{map}->[$x][$y]); 
+			}
+		}
+		for my $x ((0,$self->{w}-1)) {
+			for (my $y = 0; $y < $self->{h}; ++$y) {
+				&{$code}($x, $y, $self->{map}->[$x][$y]); 
+			}
+		}
+	} else {
+		my ($x1, $y1, $x2, $y2) = (0, 0, $self->{w},$self->{h});
+
+		if ($opts{nobodrder}) {
+			$x1++;	$y1++;
+			$x2--;	$y2--;
+		}
+
+		for (my $y = $y1; $y < $y2; ++$y) {
+			for (my $x = $x1; $x < $x2; ++$x) {
+				&{$code}($x, $y, $self->{map}->[$x][$y]); 
+			}
+		}
+	}
+}
+
 =item draw ({dispx=>, dispy=>, vp=>, con=>});
 
 Draws the map using offset params dispx, dispy,disph,dispw, 
@@ -1074,8 +1171,8 @@ sub draw {
 	  $oy = $vp->{y}-($disph/2);
 	  $ox = 0 if $ox < 0;
 	  $oy = 0 if $oy < 0;
-	  $ox = $self->{w}-$dispw if ($ox+$dispx) > $self->{w};
-	  $oy = $self->{h}-$disph if ($oy+$dispy) > $self->{h};
+	  $ox = $self->{w}-$dispw if ($ox+$dispw) > $self->{w};
+	  $oy = $self->{h}-$disph if ($oy+$disph) > $self->{h};
 	}
 	intify($ox, $oy);
 

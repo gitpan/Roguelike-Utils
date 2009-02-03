@@ -48,11 +48,18 @@ use Carp qw(confess croak);
 
 use base 'Games::Roguelike::Console';
 
-our $VERSION = '0.4.' . [qw$Revision: 233 $]->[1];
+our $VERSION = '0.4.' . [qw$Revision: 252 $]->[1];
 
 our $KEY_ESCAPE = chr(27);
 our $KEY_NOOP = chr(241);
 our ($KEY_LEFT, $KEY_UP, $KEY_RIGHT, $KEY_DOWN) = ('[D','[A','[C','[B');
+
+my %TELKEY = (
+	"\xfb" => 'WILL',
+	"\xfc" => 'WONT',
+	"\xfd" => 'DO',
+	"\xfe" => 'DONT',
+);
 
 sub new {
         my $pkg = shift;
@@ -237,10 +244,14 @@ sub tagstr {
 sub parsecolor {
 	my $self = shift;
 	my $color = shift;
-        $color =~ s/(bold )?gray/bold black/i;
-        $color =~ s/,/ /;
-	$color =~ s/\bon\s+/on_/;
-	return $color ? color($color) : '';
+	if ($color) {
+	        $color =~ s/(bold )?gray/bold black/i;
+	        $color =~ s/,/ /;
+		$color =~ s/\bon\s+/on_/;
+		return color($color);
+	} else {
+		return '';
+	}
 }
 
 sub attron {
@@ -403,6 +414,24 @@ sub getch_raw {
 	}
 }
 
+sub trans {
+	my ($c) = @_;
+
+        if ($c eq $KEY_UP) {
+                return 'UP'
+        } elsif ($c eq $KEY_DOWN) {
+                return 'DOWN'
+        } elsif ($c eq $KEY_LEFT) {
+                return 'LEFT'
+        } elsif ($c eq $KEY_RIGHT) {
+                return 'RIGHT'
+        } elsif ($c eq "\x8") {
+                return 'BACKSPACE'
+        }
+
+        return $c;
+}
+
 sub getch {
 	my $self = shift;
 
@@ -430,17 +459,7 @@ sub getch {
 		}
 	}
 
-	if ($c eq $KEY_UP) {
-		return 'UP'
-	} elsif ($c eq $KEY_DOWN) {
-		return 'DOWN'
-	} elsif ($c eq $KEY_LEFT) {
-		return 'LEFT'
-	} elsif ($c eq $KEY_RIGHT) {
-		return 'RIGHT'
-	}
-	
-	return $c;
+	return trans($c);
 }
 
 sub nbgetch_raw {
@@ -453,7 +472,7 @@ sub nbgetch_raw {
 		if ($self->{usereadkey}) {
 			$c = ReadKey(-1, $self->{in});
 		} else {
-			$c = undef if !sysread($self->{in}, $c, 1);
+			sysread($self->{in}, $c, 1);
 		}
         }
 	return $c;
@@ -468,43 +487,49 @@ sub nbgetch {
 		my $c2 = $self->nbgetch_raw();
 		if (!defined($c2)) {
 			$self->{cbuf} = $KEY_ESCAPE;
-			$c = undef;
+			$c = '';
 		} elsif ($c2 eq '[') {
-			my $c3 = $self->nbgetch_raw();
-			if (!defined($c3)) {
-				$self->{cbuf} = $KEY_ESCAPE . '[';
+			my $ct = '';
+			my $cs = '';
+
+			do {
+				$ct = $self->nbgetch_raw();
+				$cs .= $ct if defined $ct;
+			} while (defined $ct && $ct !~ /^[a-z]$/i);
+
+			if (!defined($ct)) {
+				$self->{cbuf} = $KEY_ESCAPE . '[' . $cs;
 			} else {
-				$c = '[' . $c3;
-				if ($c eq $KEY_UP) {
-					$c = 'UP'
-				} elsif ($c eq $KEY_DOWN) {
-					$c = 'DOWN'
-				} elsif ($c eq $KEY_LEFT) {
-					$c = 'LEFT'
-				} elsif ($c eq $KEY_RIGHT) {
-					$c = 'RIGHT'
-				}
+				$c = '[' . $cs;
 			}
 		} elsif ($c2 eq $KEY_NOOP) {
-			$c = undef;
+			$c = '';
 		} elsif ($c2 eq $KEY_ESCAPE) {
 			$c = 'ESC';
 		} else {
 			$c = $c2;
-			$c = undef if ord($c) > 240;
+			$c = '' if ord($c) > 240;
 		}
-	} elsif (ord($c) == 255) {		# telnet esc?
+	} elsif (ord($c) == 255) {		# telnet esc
 		my $c2 = $self->nbgetch_raw();
                 if (!defined($c2)) {
                         $self->{cbuf} = $c;
-                        $c = undef;
+                        $c = '';
+		} elsif ($TELKEY{$c2}) {
+			# telnet do/don't
+                        my $c3 = $self->nbgetch_raw();
+                        if (!defined($c3)) {
+                                $self->{cbuf} = $c . $c2;
+                        } else {
+                                $c = $TELKEY{$c2} . ord($c3);
+                        }
                 } else {
                         $c = $c2;
-                        $c = undef if ord($c) > 240;
+                        $c = '' if ord($c) > 240;
                 }
 	}
 
-	return $c;
+	return trans($c);
 }
 
 1;
