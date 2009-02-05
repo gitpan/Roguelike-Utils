@@ -22,8 +22,8 @@ my $r = mydaemon->new(
 new Games::Roguelike::Area(name=>'2', world=>$r);
 new Games::Roguelike::Area(name=>'1', world=>$r);
 
-$r->area(1)->genmaze2(with=>['>']);
-$r->area(2)->genmaze2(with=>['<']);
+$r->area(1)->generate('cavelike', with=>['>']);
+$r->area(2)->generate('cavelike', with=>['<']);
 
 while (1) {
 	$r->proc();

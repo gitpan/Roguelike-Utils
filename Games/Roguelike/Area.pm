@@ -18,7 +18,7 @@ Games::Roguelike::Area - Roguelike area map
  use base 'Games::Roguelike::Area';
 
  $a = myArea->new(w=>80,h=>50);     				# creates an area with specified width/height
- $a->genmaze2();                                         	# make a cavelike maze
+ $a->generate('cavelike');                                         	# make a cavelike maze
  $char = Games::Roguelike::Mob->new($a, sym=>'@');              # add a mobile object with symbol '@'
 
 =head1 DESCRIPTION
@@ -45,7 +45,7 @@ use Carp qw(croak confess carp);
 our $OKINLINEPOV;
 our $AUTOLOAD;
 
-our $VERSION = '0.4.' . [qw$Revision: 250 $]->[1];
+our $VERSION = '0.5.' . [qw$Revision: 253 $]->[1];
 
 BEGIN {
         eval('use Games::Roguelike::Utils::Pov_C;');
@@ -181,13 +181,15 @@ sub DESTROY {
 Raw accessors may be subject to change in future versions, but are much faster.
 
  $area->{map}[$x][$y] = $sym, 
- $area->{color}->[$x][$y] = $color
+ $area->{color}[$x][$y] = $color
 
 Function accessors will always work, but are slower:
 
  $sym=$area->getmapsym($x,$y) 
  $color=$area->getmapcolor($x,$y) 
  $area->setmap($x,$y, $sym [,$color]);
+
+If you're looping over the whole map, you can use foreachmap().
 
 etcetera.
 
@@ -275,7 +277,6 @@ sub rpoint_empty {
 	}
 }
 
-
 ############ part of genmaze1 ############
 
 sub genroom {
@@ -288,7 +289,7 @@ sub genroom {
 	if ($x =~ /^[a-z]/i) {
 		%opts = @_;
 		$x = $opts{x};
-		$y = $opts{x};
+		$y = $opts{y};
 		if (! defined $x) {
 			($x, $y) = $self->rpoint_empty();
 		}
@@ -864,13 +865,66 @@ sub inbound {
 }
 
 
+=item generate ($type [, options ... ])
+
+This calls "$type::generate" if it is defined, perhaps in the caller's package, etc.
+
+Predefined types are "Rooms", "Cavelike" and "Maze" (see below).
+
+If no "::" is present, 'Games::Roguelike::Area::' is prepended, and the first character is propercased.
+
+If &{"$type::generate"} is not defined, it will require "$type" and then try again.
+
+Assuming there is no function named "wilderness::generate", then the following are roughly equivalent:
+
+ $self->generate('Games::Roguelike::Area::Rooms');
+or
+ $self->generate('rooms');  
+or
+ Games::Roguelike::Area::Rooms::generate($self);
+or
+ $self = new Games::Roguelike::Area::Rooms; $self->generate();
+
+Additonal options are passed to the generate function.  Generate functions should support named parameters..
+
+Common option is a "with=>[feature1, feature2]" feature list, that get added to empty floor map locations, 
+and appended to the map's feature list.
+
+Height, width are taken from the area object.
+
+=cut
+
+sub generate {
+        my $self = shift;
+	my $type = shift;
+
+	my $path = $type . '::generate';
+	if (defined &$path) { 
+		no strict 'refs';
+		return &$type($self, @_);
+	}
+
+	if ($type !~ /::/) {
+		$type =~ s/^(\w)/\U$1/;
+		$type = 'Games::Roguelike::Area::' . $type;
+		$path = $type . '::generate';
+		if (defined &$path) {
+			no strict 'refs';
+			return &$path($self, @_);
+		}
+	}
+	eval "require $type";
+	no strict 'refs';
+	return &$path($self, @_);
+}
+
 
 # this is intended as *example* of making a map that i got to work in a few hours
 # it is not intended as a good map
 # if map-making isn't what you want to work on in the beginning, you can start here
 
 
-=item genmaze2([with=>[sym1[,sym2...]])
+=item generate('cavelike', [with=>[sym1[,sym2...]])
 
 Makes a random map with a bunch of cave-like rooms connected by corridors.
 
@@ -936,16 +990,7 @@ sub genmaze2 {
         }
 }
 
-sub dprint {
-	my $self=shift;
-	if ($self->{world}) {
-		$self->{world}->dprint(@_)
-	} else {
-		print @_, "\n";
-	} 
-}
-
-=item genmaze1 ([with=>[sym1[,sym2...]])
+=item generate ('rooms', [with=>[sym1[,sym2...]])
 
 Makes a random nethack-style map with a bunch of rectangle rooms connected by corridors
 
@@ -994,7 +1039,7 @@ sub genmaze1 {
 	}
 }
 
-=item genmaze3(rand=>number, with=>feature-list) 
+=item generate('maze', rand=>number, with=>feature-list) 
 
 Generate a tight, difficult maze.  Rand defaults to 5 (higher numbers are less random).
 
@@ -1098,6 +1143,16 @@ sub genmaze3 {
                 push @{$self->{f}}, [$fx, $fy, 'FEATURE'];
         }
 }
+
+=item foreachmap (code-reference [,noborder=>1] [,border=>1])
+
+Loops over each map location, and calls the code with parameters x, y and map-symbol.
+
+Option "border" calls the code only for border (edge) squares.
+
+Option "noborder" calls the code for everything but border (edge) squares.
+
+=cut
 
 sub foreachmap {
 	my $self = shift;
@@ -1781,7 +1836,56 @@ sub expandkey {
 }
 
 
+sub dprint {
+	my $self=shift;
+	if ($self->{world}) {
+		$self->{world}->dprint(@_)
+	} else {
+		print @_, "\n";
+	} 
+}
+
 =back
+
+=cut
+
+# this allows the "generate" function to work and support the old interface
+
+package Games::Roguelike::Area::Rooms;
+use base 'Games::Roguelike::Area';
+
+sub generate {
+	Games::Roguelike::Area::genmaze1(@_);
+}
+
+package Games::Roguelike::Area::Cavelike;
+use base 'Games::Roguelike::Area';
+
+sub generate {
+        Games::Roguelike::Area::genmaze2(@_);
+}
+
+package Games::Roguelike::Area::Maze;
+use base 'Games::Roguelike::Area';
+
+sub generate {
+        Games::Roguelike::Area::genmaze3(@_);
+}
+
+=head1 SEE ALSO
+
+L<Games::Roguelike::World>, L<Games::Roguelike::Mob>, L<Games::Roguelike::Console>
+
+=head1 AUTHOR
+
+Erik Aronesty C<earonesty@cpan.org>
+
+=head1 LICENSE
+
+This program is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
+
+See L<http://www.perl.com/perl/misc/Artistic.html> or the included LICENSE file.
 
 =cut
 

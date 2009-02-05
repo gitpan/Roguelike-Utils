@@ -11,7 +11,7 @@ use IO::Socket;
 use IO::Select;
 use IO::File qw();		# this prevents warnings on win32
 
-our $VERSION = '0.4.' . [qw$Revision: 246 $]->[1];
+our $VERSION = '0.4.' . [qw$Revision: 253 $]->[1];
 
 use Time::HiRes qw(time);
 
@@ -37,7 +37,7 @@ Games::Roguelike::World::Daemon - roguelike game telnet daemon
 
  my $r = myWorld->new(w=>80,h=>50,dispw=>40,disph=>18);  # create a networked world
  $r->area(new Games::Roguelike::Area(name=>'1'));        # create a new area in this world called "1"
- $r->area->genmaze2();                                   # make a cavelike maze
+ $r->area->generate('cavelike');                         # make a cavelike maze
 
  while (1) {
         $r->proc();

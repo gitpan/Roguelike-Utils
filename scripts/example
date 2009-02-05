@@ -114,13 +114,13 @@ sub newarea {
 
 	if ($name >= 3) {
 		# maze map
-		$level->genmaze3(with=>['<','>']);
+		$level->generate('maze', with=>['<','>']);
 	} elsif ($name >= 2) {
 		# cave map
-		$level->genmaze2(with=>['<','>']);
+		$level->generate('cavelike', with=>['<','>']);
 	} else {
 		# room map
-		$level->genmaze1(with=>['<','>']);
+		$level->generate('rooms', with=>['<','>']);
 	}
 	
 	## This works nicely now

@@ -8,7 +8,7 @@ use Carp;
 
 use base 'Games::Roguelike::Console';
 
-our $VERSION = '0.4.' . [qw$Revision: 232 $]->[1];
+our $VERSION = '0.4.' . [qw$Revision: 247 $]->[1];
 
 sub new {
         my $pkg = shift;
@@ -122,7 +122,7 @@ sub addstr {
 		return if length($str) == 0;
 		$self->{buf}->WriteChar($str, $self->{cx}, $self->{cy});
 		$self->{buf}->WriteAttr(chr($self->{cattr}) x length($str), $self->{cx}, $self->{cy});
-		$self->invalidate($self->{cx}, $self->{cy}, $self->{cx} + length($str), $self->{cy});
+		#$self->invalidate($self->{cx}, $self->{cy}, $self->{cx} + length($str), $self->{cy});
 		$self->{cx} += length($str);
 	} elsif (@_==2) {
 		my ($y, $x) = @_;
@@ -132,7 +132,7 @@ sub addstr {
 		return if length($str) == 0;
 		$self->{buf}->WriteChar($str, $x, $y);
 		$self->{buf}->WriteAttr(chr($self->{cattr}) x length($str), $x, $y);
-		$self->invalidate($x, $y, $x+length($str), $y);
+		#$self->invalidate($x, $y, $x+length($str), $y);
 		$self->{cx} = $x + length($str);
 		$self->{cy} = $y;
 	}
@@ -180,7 +180,7 @@ sub tagstr {
                 $self->{buf}->WriteAttr($attr, $r, $y);
                 ++$r;
         }
-        $self->invalidate($x, $y, $x+$r, $y);
+        #$self->invalidate($x, $y, $x+$r, $y);
         $self->{cy}=$y;
         $self->{cx}=$x+$r;
 }
@@ -191,9 +191,9 @@ sub refresh {
 	#$self->{con}->WriteRect($rect, $self->{invl}, $self->{invt}, $self->{invr}, $self->{invb});
 	my $rect = $self->{buf}->ReadRect(0, 0, $self->{winx}, $self->{winy});
 	$self->{con}->WriteRect($rect, 0, 0, $self->{winx}, $self->{winy});
-	$self->{invl} = $self->{winx}+1;
-	$self->{invt} = $self->{winy}+1;
-	$self->{invr} = $self->{invb} = -1;
+#	$self->{invl} = $self->{winx}+1;
+#	$self->{invt} = $self->{winy}+1;
+#	$self->{invr} = $self->{invb} = -1;
 }
 
 sub move {
