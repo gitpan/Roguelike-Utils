@@ -1,4 +1,5 @@
 Games/Roguelike/Area.pm
+Games/Roguelike/Area/Wilderness.pm
 Games/Roguelike/Console.pm
 Games/Roguelike/Console/ANSI.pm
 Games/Roguelike/Console/Curses.pm

@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Roguelike-Utils
-version:            0.5.253
+version:            0.5.254
 abstract:           Roguelike Utilities for Perl
 author:
     - Erik Aronesty (erik@q32.com)

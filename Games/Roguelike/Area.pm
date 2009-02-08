@@ -45,7 +45,7 @@ use Carp qw(croak confess carp);
 our $OKINLINEPOV;
 our $AUTOLOAD;
 
-our $VERSION = '0.5.' . [qw$Revision: 253 $]->[1];
+our $VERSION = '0.5.' . [qw$Revision: 254 $]->[1];
 
 BEGIN {
         eval('use Games::Roguelike::Utils::Pov_C;');

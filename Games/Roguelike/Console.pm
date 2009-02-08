@@ -7,7 +7,7 @@ our @ISA=qw(Exporter);
 use Carp qw(croak);
 use warnings::register;
 
-our $VERSION = '0.4.' . [qw$Revision: 230 $]->[1];
+our $VERSION = '0.4.' . [qw$Revision: 256 $]->[1];
 
 =head1 NAME
 
@@ -120,15 +120,11 @@ our ($OK_WIN32, $OK_CURSES, $DUMPFILE, $DUMPKEYS);
 
 my %CONDATA;
 
-if ($^O =~ /Win32/) {
-	# console
-	eval{require Games::Roguelike::Console::Win32};
-	$OK_WIN32 = !$@;
-} else {	
-	# works ok
-	eval{require Games::Roguelike::Console::Curses};
-	$OK_CURSES = !$@;
-}
+eval{require Games::Roguelike::Console::Win32};
+$OK_WIN32 = !$@;
+
+eval{require Games::Roguelike::Console::Curses};
+$OK_CURSES = !$@;
 
 # guess best package, and return "new of that package"
 

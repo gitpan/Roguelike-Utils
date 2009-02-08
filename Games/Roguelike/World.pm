@@ -52,7 +52,7 @@ use Data::Dumper;
 use Carp qw(croak confess carp);
 
 our $AUTOLOAD;
-our $VERSION = '0.4.' . [qw$Revision: 244 $]->[1];
+our $VERSION = '0.4.' . [qw$Revision: 256 $]->[1];
 
 =item new(OPT1=>VAL1, OPT2=>VAL2...)
 	
@@ -246,25 +246,28 @@ sub getstr {
 
 	$self->{con}->cursor(1);
 	my ($c, $str);
-	do {
+	while (1) {
         	$c = $self->{con}->getch();
+		if ($c =~ /[\n\r]/) {
+			last if length($str) > 0 || $opts{empty};
+		}
 		if ($opts{echo} && length($str) < $opts{max}) {
 			if ($c eq 'BACKSPACE') {
 				$self->{con}->addch(chr(8));
 				$self->{con}->addch(' ');
 				$self->{con}->addch(chr(8));
-			} elsif (length($c) == 1) {
+			} elsif ((length($c)==1) && (ord($c) > 30) && (ord($c) < 128)) {
         			$self->{con}->addch($c); 
 			}
 		}
 		$self->{con}->refresh();
                 if ($c eq 'BACKSPACE') {
                         $str = substr($str, 0, -1);
-                } elsif (length($c)==1) {
+		} elsif ((length($c)==1) && (ord($c) > 30) && (ord($c) < 128)) {
 			$str .= $c;
                 };
 		$c = '' if !length($str);
-	} while (!($c =~ /[\n\r]/));
+	}
 
 	$self->{con}->cursor(0);
 	chomp $str;
@@ -343,19 +346,14 @@ sub dispstr {
 		$self->{displine} = $line;
 	}
 
-	if ($self->{displine} >= ($self->{dispy} + $self->{disph})) {
-		return 0;
+	for (split(/\n/, $str)) {
+		if ($self->{displine} >= ($self->{dispy} + $self->{disph})) {
+			return 0;
+		}
+		$self->{con}->tagstr($self->{displine}, $self->{dispx}, rpad($_, $self->{dispw}));
+		$self->{con}->move($self->{displine}, $self->{dispx}+length($_));
+		$self->{displine} += 1;
 	}
-
-	$self->{con}->tagstr($self->{displine}, $self->{dispx}, rpad($str, $self->{dispw}));
-
-	my $lc = 0;
-	map {++$lc} ($str =~ /\n/g);
-
-	$str =~ s/.*\n//s;
-	$self->{con}->move($self->{displine}+$lc, $self->{dispx}+length($str));
-
-	$self->{displine} += 1 + $lc;
 
 	if ($self->{displine} >= ($self->{dispy} + $self->{disph})) {
 		$ret = 2;

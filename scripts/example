@@ -209,8 +209,7 @@ sub checkmove {
 
 	if ($mapsym eq '+') {
 		# door locked? return 0
-                $char->{area}->setmapsym($x,$y,'/');
-                $char->{area}->setmapcolor($x,$y,'yellow');
+                $char->{area}->setmap($x,$y,'/', 'yellow');
 	}
 
 	if ($mob) {
