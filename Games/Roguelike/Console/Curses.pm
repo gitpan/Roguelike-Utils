@@ -3,6 +3,7 @@ package Games::Roguelike::Console::Curses;
 use Curses qw(noecho cbreak curs_set start_color);
 use base qw(Curses::Window Games::Roguelike::Console);
 use Carp qw(croak cluck);
+use POSIX;
 use warnings::register;
 
 our $VERSION = '0.4.' . [qw$Revision: 233 $]->[1];
@@ -69,6 +70,11 @@ sub sig_int_handler {
 
 sub DESTROY {
 	Curses::endwin();
+	if ($^O =~ /linux|darwin/) {
+		if (my $tty = POSIX::ttyname(1)) {
+			system("stty -F $tty sane");
+		}
+	}
 }
 
 sub nativecolor {

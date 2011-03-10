@@ -45,7 +45,7 @@ use Carp qw(croak confess carp);
 our $OKINLINEPOV;
 our $AUTOLOAD;
 
-our $VERSION = '0.5.' . [qw$Revision: 254 $]->[1];
+our $VERSION = '0.5.' . [qw$Revision: 259 $]->[1];
 
 BEGIN {
         eval('use Games::Roguelike::Utils::Pov_C;');
@@ -1788,6 +1788,9 @@ sub load {
 						}
 					}
 				} else {
+					if ($opt->{feature}) {
+						push @{$self->{f}}, [$x, $y];
+					}
 					$self->{map}->[$x][$y] = $sym;
 					$self->{color}->[$x][$y] = $opt->{color};
 				}

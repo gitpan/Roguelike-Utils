@@ -29,7 +29,7 @@ L<Games::Roguelike::Console>
 
 =head1 AUTHOR
 
-Erik Aronesty C<erik@q32.com>
+Erik Aronesty C<earonesty@cpan.org>
 
 =head1 LICENSE
 
@@ -44,11 +44,12 @@ use strict;
 use IO::File;
 use Term::ReadKey;
 use Term::ANSIColor;
+use POSIX;
 use Carp qw(confess croak);
 
 use base 'Games::Roguelike::Console';
 
-our $VERSION = '0.4.' . [qw$Revision: 252 $]->[1];
+our $VERSION = '0.4.' . [qw$Revision: 258 $]->[1];
 
 our $KEY_ESCAPE = chr(27);
 our $KEY_NOOP = chr(241);
@@ -157,9 +158,6 @@ sub reset_fh {
 	print $out "\033[=1c"; 		# show cursor
 	print $out "\033[30;0H";     	# jump to col 0
 	eval {ReadMode 0, $out};	# normal input
-	if ($^O =~ /linux/ && fileno($out) == 1) {
-		system("stty sane");
-	}
 }
 
 sub sig_int_handler {
@@ -178,6 +176,12 @@ sub END {
 	if ($STD) {
 		reset_fh(*STDOUT{IO});
 		$STD = undef;
+	}
+
+	if ($^O =~ /linux|darwin/) {
+		if (my $tty = POSIX::ttyname(1)) {
+			system("stty -F $tty sane");
+		}
 	}
 }
 
